@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="theme-color" content="#111111">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LNRO Intake">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+
+<!-- skill:chrome -->
+<style>
+/* Credit line — bottom-right */
+.design-ui-credit {
+  position: fixed;
+  bottom: 12px;
+  right: 12px;
+  font: 11px/1 system-ui, sans-serif;
+  color: rgba(128,128,128,0.5);
+  pointer-events: none;
+  z-index: 2147483647;
+  transition: opacity 0.4s ease;
+  user-select: none;
+  letter-spacing: 0.02em;
+}
+
+/* Hide chrome on touch devices */
+@media (hover: none) {
+  .design-ui-credit { display: none; }
+}
+
+/* Print fixes */
+@media print {
+  * {
+    transition: none !important;
+    animation: none !important;
+    box-shadow: none !important;
+  }
+  body {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .design-ui-credit { display: none !important; }
+}
+
+</style>
+<script>
+(function () {
+    // Design-ui pages are single compositions, so the whole body is editable.
+    function markEditable() {
+        document.body.classList.add('artifact-editable');
+    }
+
+    // Credit badge with idle-fade. Hover devices only.
+    function initChromeUI() {
+        if (!matchMedia('(hover: hover)').matches) return;
+
+        var credit = document.createElement('div');
+        credit.className = 'design-ui-credit';
+        credit.setAttribute('aria-hidden', 'true');
+        credit.innerHTML = '\u{1F49C} by ClickUp Brain';
+        document.body.appendChild(credit);
+
+        var timer = null;
+        var fade = function (out) { credit.style.opacity = out ? '0' : ''; };
+        fade(true);
+        var show = function () {
+            fade(false);
+            clearTimeout(timer);
+            timer = setTimeout(function () { fade(true); }, 3000);
+        };
+        document.addEventListener('mousemove', show);
+        show();
+    }
+
+    function init() {
+        markEditable();
+        initChromeUI();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
+
+</script>
+<!-- /skill:chrome -->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Paul Davis LNRO – Territory Lookup & Loss Intake</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LNRO Intake">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#171717">
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<!-- iPhone/mobile enhancements -->
+<style id="iphone-enhancements">
+html{background:var(--off-white);-webkit-text-size-adjust:100%;text-size-adjust:100%;scroll-behavior:smooth}
+body{min-width:0;overflow-x:hidden;-webkit-tap-highlight-color:transparent;overscroll-behavior-x:none}
+button,input,select,textarea{font:inherit;-webkit-appearance:none;appearance:none}
+input,select,textarea{font-size:16px !important}
+button{touch-action:manipulation}
+.leaflet-container{touch-action:pan-x pan-y}
+
+@media (max-width: 768px){
+  body{padding-bottom:env(safe-area-inset-bottom)}
+  .brand-header{padding:12px 16px;gap:10px;position:sticky;top:0;z-index:2000;padding-top:max(12px,env(safe-area-inset-top));box-shadow:0 2px 10px rgba(0,0,0,.18)}
+  .brand-left{gap:10px}.pd-icon{width:34px;height:34px;font-size:11px;border-width:2px}.brand-name .name{font-size:1rem}.brand-name .tagline{font-size:.45rem}.brand-right{display:none}
+  .map-section{display:flex;flex-direction:column;height:auto;min-height:0;border-bottom:3px solid var(--gold)}
+  .panel{order:1;max-height:none;overflow:visible;border-right:0}
+  .panel-header{padding:16px 16px 12px}.panel-header h2{font-size:.95rem}.section{padding:12px 16px}.table-section{display:none}
+  .map-side{order:2;height:42vh;min-height:280px;max-height:420px}
+  #map{height:100%;min-height:280px}
+  .form-section{padding:28px 16px calc(96px + env(safe-area-inset-bottom));max-width:none}
+  .form-brand{margin-bottom:24px;padding-bottom:14px}.form-brand .form-title{font-size:1.2rem}.form-brand .form-pd{display:none}
+  .form-group-title{font-size:.78rem;margin-top:24px;margin-bottom:12px}
+  .form-row{gap:10px;margin-bottom:10px}.form-field{gap:5px}.form-field label{font-size:.62rem}
+  .form-field input,.form-field textarea,.form-field select{min-height:44px;padding:10px 12px;border-radius:8px}
+  .form-field textarea{min-height:90px}
+  .checkbox-group{gap:8px 14px}.checkbox-item{min-height:40px}.checkbox-item input[type=checkbox],.checkbox-item input[type=radio]{width:20px;height:20px;flex:0 0 20px}
+  .type-selector{gap:8px}.type-option{min-height:64px;padding:10px}.type-selector.cols-6{grid-template-columns:1fr 1fr}
+  .billing-toggle{gap:8px}.billing-toggle-btn{min-height:44px;padding:9px 14px}
+  .address-suggestions{max-height:45vh}.suggestion-item{padding:13px 12px;min-height:54px}
+  .result-card{padding:12px}.result-details{gap:8px}
+  .leaflet-control-zoom a{width:38px!important;height:38px!important;line-height:38px!important;font-size:20px!important}
+  .loading-indicator{top:10px;font-size:.7rem}
+}
+
+@media (max-width: 420px){
+  .form-section{padding-left:12px;padding-right:12px}
+  .section{padding-left:12px;padding-right:12px}
+  .panel-header{padding-left:12px;padding-right:12px}
+}
+
+/* Prevent iOS Safari from hiding focused fields behind the keyboard. */
+@supports (-webkit-touch-callout:none){
+  .form-field input:focus,.form-field select:focus,.form-field textarea:focus,.search-box input:focus{scroll-margin-top:90px}
+}
+</style>
+<style>
+:root{--gold:oklch(68% .14 85);--gold-light:oklch(94% .05 85);--gold-mid:oklch(80% .10 85);--gold-dark:oklch(48% .12 85);--pd-black:oklch(12% .005 85);--near-black:oklch(22% .005 85);--dark-gray:oklch(38% .005 85);--mid-gray:oklch(55% .005 85);--light-gray:oklch(93% .004 85);--off-white:oklch(97.5% .003 85);--white:oklch(99.5% .002 85);--success:oklch(52% .12 150);--success-bg:oklch(93% .04 150);--warning:oklch(45% .12 25);--warning-bg:oklch(93% .04 25);--red-flag-bg:oklch(96% .02 25);--red-flag-border:oklch(88% .04 25);--ease-out-expo:cubic-bezier(.16,1,.3,1)}
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Inter',system-ui,sans-serif;background:var(--off-white);color:var(--near-black);font-optical-sizing:auto}
+.brand-header{background:var(--pd-black);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.brand-left{display:flex;align-items:center;gap:14px}
+.pd-icon{width:40px;height:40px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;border:3px solid oklch(58% .12 85);font-size:13px;font-weight:800;color:var(--pd-black);letter-spacing:.5px}
+.brand-name{display:flex;flex-direction:column}.brand-name .name{font-size:1.375rem;font-weight:800;color:var(--white);letter-spacing:.02em;text-transform:uppercase}.brand-name .tagline{font-size:.5625rem;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--gold)}.brand-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px}.brand-right .office-name{font-size:.6875rem;font-weight:600;color:oklch(80% .005 85)}.brand-right .office-info{font-size:.625rem;color:oklch(60% .005 85)}
+.map-section{display:grid;grid-template-columns:380px 1fr;height:70vh;min-height:500px;border-bottom:3px solid var(--gold)}@media(max-width:960px){.map-section{grid-template-columns:1fr;height:auto}.panel{max-height:50vh;overflow-y:auto}.map-side{min-height:350px}}
+.panel{background:var(--white);border-right:1px solid oklch(91% .004 85);display:flex;flex-direction:column;overflow-y:auto}.panel-header{padding:20px 20px 14px;border-bottom:1px solid oklch(93% .004 85)}.panel-header h2{font-size:1rem;font-weight:700;color:var(--pd-black);margin-bottom:2px}.panel-header p{font-size:.6875rem;color:var(--mid-gray);line-height:1.4}
+.section{padding:14px 20px;border-bottom:1px solid oklch(93% .004 85)}.section-label{font-size:.5625rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--mid-gray);margin-bottom:8px}
+.search-box{position:relative}.search-box input{width:100%;padding:10px 14px 10px 36px;font-size:.8125rem;font-family:inherit;font-weight:500;border:1.5px solid oklch(89% .004 85);border-radius:7px;background:var(--off-white);color:var(--near-black);outline:none;transition:all 200ms var(--ease-out-expo)}.search-box input:focus{border-color:var(--gold);box-shadow:0 0 0 3px oklch(68% .14 85/.1);background:var(--white)}.search-box input::placeholder{color:oklch(65% .005 85)}.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--mid-gray);pointer-events:none}
+.result-card{margin-top:10px;background:var(--off-white);border-radius:7px;padding:12px 14px;display:none;animation:slideUp 300ms var(--ease-out-expo)}@keyframes slideUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}.result-card.visible{display:block}.result-card .result-title{font-size:.8125rem;font-weight:700;color:var(--pd-black);margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.in-territory{font-size:.5625rem;font-weight:600;text-transform:uppercase;padding:2px 6px;border-radius:3px;background:oklch(88% .08 145);color:oklch(35% .08 145)}.out-territory{font-size:.5625rem;font-weight:600;text-transform:uppercase;padding:2px 6px;border-radius:3px;background:oklch(90% .06 25);color:oklch(40% .1 25)}
+.result-details{display:grid;grid-template-columns:1fr 1fr;gap:6px}.result-detail{display:flex;flex-direction:column;gap:1px}.result-detail .detail-label{font-size:.5625rem;font-weight:500;text-transform:uppercase;color:var(--mid-gray)}.result-detail .detail-value{font-size:.75rem;font-weight:600;color:var(--near-black)}
+.table-section{flex:1;overflow:hidden;display:flex;flex-direction:column}.table-header{padding:10px 20px 6px;display:flex;align-items:center;justify-content:space-between}.table-header .section-label{margin-bottom:0}.table-count{font-size:.625rem;color:var(--mid-gray)}.table-scroll{flex:1;overflow-y:auto;padding:0 20px 12px}
+table{width:100%;border-collapse:collapse}thead{position:sticky;top:0;z-index:2}thead th{font-size:.5625rem;font-weight:600;text-transform:uppercase;color:var(--dark-gray);padding:7px 6px;text-align:left;background:var(--white);border-bottom:1px solid oklch(91% .004 85)}tbody tr{border-bottom:1px solid oklch(96% .003 85);cursor:pointer;transition:background 80ms}tbody tr:hover{background:var(--gold-light)}tbody td{padding:6px;font-size:.625rem;color:var(--near-black)}tbody td:first-child{font-weight:600}
+.map-side{position:relative}#map{width:100%;height:100%}.leaflet-control-attribution{font-size:9px!important}.loading-indicator{position:absolute;top:12px;left:50%;transform:translateX(-50%);background:var(--white);padding:6px 14px;border-radius:6px;font-size:.6875rem;color:var(--mid-gray);box-shadow:0 2px 8px oklch(0% 0 0/.1);z-index:1000;display:none}.loading-indicator.visible{display:block}
+.form-section{max-width:920px;margin:0 auto;padding:48px 32px 64px}.form-brand{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid var(--gold);flex-wrap:wrap;gap:12px}.form-brand .form-title{font-size:1.5rem;font-weight:800;color:var(--pd-black)}.form-brand .form-pd .pd-mark{font-size:1.125rem;font-weight:800;color:var(--pd-black);text-transform:uppercase}.form-brand .form-pd .pd-sub{font-size:.5rem;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:var(--gold-dark)}
+.form-group-title{font-size:.875rem;font-weight:700;color:var(--pd-black);text-transform:uppercase;letter-spacing:.04em;margin-top:32px;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid oklch(88% .005 85)}.form-group-title:first-of-type{margin-top:0}
+.form-row{display:grid;gap:12px;margin-bottom:12px}.form-row.cols-2{grid-template-columns:1fr 1fr}.form-row.cols-3{grid-template-columns:1fr 1fr 1fr}.form-row.cols-3-1-1{grid-template-columns:3fr 1fr 1fr}@media(max-width:640px){.form-row.cols-2,.form-row.cols-3,.form-row.cols-3-1-1{grid-template-columns:1fr}}
+.form-field{display:flex;flex-direction:column;gap:4px}.form-field label{font-size:.6875rem;font-weight:600;color:var(--dark-gray);text-transform:uppercase;letter-spacing:.04em}.form-field input,.form-field textarea,.form-field select{padding:9px 12px;font-size:.8125rem;font-family:inherit;font-weight:500;border:1.5px solid oklch(88% .004 85);border-radius:6px;background:var(--white);color:var(--near-black);outline:none;transition:border-color 200ms var(--ease-out-expo),box-shadow 200ms}.form-field input:focus,.form-field textarea:focus,.form-field select:focus{border-color:var(--gold);box-shadow:0 0 0 2px oklch(68% .14 85/.08)}.form-field textarea{resize:vertical;min-height:60px}.form-field select{cursor:pointer}
+.checkbox-group{display:flex;flex-wrap:wrap;gap:12px;padding:6px 0}.checkbox-item{display:flex;align-items:center;gap:6px;cursor:pointer}.checkbox-item input[type="checkbox"],.checkbox-item input[type="radio"]{width:16px;height:16px;accent-color:var(--gold-dark);cursor:pointer}.checkbox-item span{font-size:.75rem;font-weight:500;color:var(--near-black)}
+.type-selector{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}.type-selector.cols-6{grid-template-columns:repeat(3,1fr)}@media(max-width:640px){.type-selector.cols-6{grid-template-columns:1fr 1fr}}
+.type-option{padding:12px 14px;border:2px solid oklch(89% .004 85);border-radius:8px;cursor:pointer;text-align:center;transition:all 200ms var(--ease-out-expo)}.type-option:hover{border-color:var(--gold);background:var(--gold-light)}.type-option.active{border-color:var(--gold);background:var(--gold-light)}.type-option .type-icon{font-size:1.3rem;margin-bottom:3px}.type-option .type-label{font-size:.6875rem;font-weight:700;color:var(--pd-black);text-transform:uppercase}
+.conditional{display:none;animation:slideUp 250ms var(--ease-out-expo)}.conditional.visible{display:block}
+.billing-toggle{display:flex;gap:10px;margin-bottom:12px}.billing-toggle-btn{padding:8px 16px;font-size:.6875rem;font-family:inherit;font-weight:600;border:1.5px solid oklch(88% .004 85);border-radius:6px;cursor:pointer;background:var(--white);color:var(--dark-gray);transition:all 150ms var(--ease-out-expo)}.billing-toggle-btn.active{border-color:var(--gold);background:var(--gold-light);color:var(--pd-black)}.billing-toggle-btn:hover{border-color:var(--gold)}
+.address-field-wrapper{position:relative}.address-suggestions{position:absolute;top:100%;left:0;right:0;z-index:100;background:var(--white);border:1.5px solid oklch(85% .004 85);border-top:none;border-radius:0 0 6px 6px;box-shadow:0 8px 24px oklch(0% 0 0/.12);max-height:220px;overflow-y:auto;display:none}.address-suggestions.visible{display:block}.suggestion-item{padding:10px 12px;cursor:pointer;border-bottom:1px solid oklch(95% .003 85);transition:background 80ms}.suggestion-item:last-child{border-bottom:none}.suggestion-item:hover{background:var(--gold-light)}.suggestion-item .sug-main{font-size:.8125rem;font-weight:600}.suggestion-item .sug-detail{font-size:.6875rem;color:var(--mid-gray);margin-top:1px}.suggestion-loading{padding:12px;text-align:center;font-size:.6875rem;color:var(--mid-gray)}.address-hint{font-size:.625rem;color:var(--mid-gray);margin-top:4px;font-style:italic}
+.coverage-badge{display:none;align-items:center;gap:8px;padding:10px 14px;border-radius:7px;margin-top:8px;animation:slideUp 250ms var(--ease-out-expo)}.coverage-badge.visible{display:flex}.coverage-badge.covered{background:var(--success-bg);border:1px solid oklch(85% .06 150)}.coverage-badge.not-covered{background:var(--warning-bg);border:1px solid oklch(85% .06 25)}.coverage-badge .badge-icon{font-size:1.1rem}.coverage-badge .badge-text{display:flex;flex-direction:column;gap:1px}.coverage-badge .badge-title{font-size:.75rem;font-weight:700}.coverage-badge.covered .badge-title{color:var(--success)}.coverage-badge.not-covered .badge-title{color:var(--warning)}.coverage-badge .badge-detail{font-size:.6875rem;color:var(--dark-gray)}
+.loss-section{background:oklch(98% .002 85);border:1px solid oklch(92% .004 85);border-radius:8px;padding:16px 18px;margin-top:12px;margin-bottom:12px}.loss-section .form-row{margin-bottom:10px}
+.rooms-grid{display:flex;flex-wrap:wrap;gap:8px;padding:6px 0}.rooms-grid .checkbox-item span{font-size:.6875rem}
+.gmaps-link{display:none;margin-top:8px;padding:8px 14px;background:oklch(96% .003 85);border:1px solid oklch(90% .004 85);border-radius:6px;font-size:.6875rem;font-weight:500;color:var(--dark-gray);align-items:center;gap:8px;text-decoration:none;transition:background 150ms}.gmaps-link:hover{background:var(--gold-light)}.gmaps-link.visible{display:inline-flex}#route-btn.visible{display:inline-flex!important}#route-btn:disabled{opacity:.65;cursor:wait}.route-summary{font-weight:700}.route-sub{color:var(--mid-gray);margin-top:2px}
+.red-flag-section{background:var(--red-flag-bg);border:1.5px solid var(--red-flag-border);border-radius:8px;padding:16px 18px;margin-top:16px}.red-flag-title{font-size:.6875rem;font-weight:700;color:oklch(40% .1 25);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;display:flex;align-items:center;gap:6px}.red-flag-title::before{content:'⚡'}.red-flag-note{font-size:.6rem;color:var(--mid-gray);font-style:italic;margin-top:8px}
+.schedule-section{background:oklch(96% .02 220);border:1.5px solid oklch(88% .04 220);border-radius:8px;padding:16px 18px;margin-top:16px}.schedule-title{font-size:.6875rem;font-weight:700;color:oklch(40% .08 220);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;display:flex;align-items:center;gap:6px}.schedule-title::before{content:'📅'}
+.dollar-input{position:relative}.dollar-input::before{content:'$';position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:.8125rem;font-weight:600;color:var(--mid-gray);pointer-events:none}.dollar-input input{padding-left:24px!important}
+.storage-bar{background:oklch(96% .003 85);border:1px solid oklch(91% .004 85);border-radius:8px;padding:14px 18px;margin-top:28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}.storage-info{display:flex;align-items:center;gap:10px}.storage-count{width:28px;height:28px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;color:var(--pd-black)}.storage-text{font-size:.75rem;font-weight:500;color:var(--dark-gray)}.storage-text strong{font-weight:700;color:var(--pd-black)}.storage-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{padding:10px 18px;font-size:.75rem;font-family:inherit;font-weight:600;border:none;border-radius:6px;cursor:pointer;transition:background 150ms var(--ease-out-expo),transform 100ms}.btn:active{transform:scale(.97)}.btn-primary{background:var(--pd-black);color:var(--white)}.btn-primary:hover{background:oklch(22% .005 85)}.btn-secondary{background:var(--gold);color:var(--pd-black)}.btn-secondary:hover{background:var(--gold-mid)}.btn-outline{background:transparent;border:1.5px solid oklch(85% .004 85);color:var(--dark-gray)}.btn-outline:hover{background:oklch(95% .003 85)}.btn-danger{background:oklch(90% .04 25);color:oklch(40% .12 25)}.btn-danger:hover{background:oklch(85% .06 25)}.btn-email{background:oklch(35% .05 220);color:var(--white)}.btn-email:hover{background:oklch(30% .05 220)}
+.form-actions{margin-top:20px;display:flex;gap:10px;flex-wrap:wrap}.actions-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.saved-banner{display:none;padding:12px 16px;background:var(--success-bg);border:1px solid oklch(85% .06 150);border-radius:8px;margin-top:16px;font-size:.75rem;font-weight:600;color:var(--success);align-items:center;gap:8px}.saved-banner.visible{display:flex}
+.entries-preview{margin-top:16px;background:var(--white);border:1px solid oklch(91% .004 85);border-radius:8px;overflow:hidden;display:none}.entries-preview.visible{display:block}.entries-preview .entries-scroll{max-height:200px;overflow-y:auto}.entries-preview table{font-size:.625rem}.entries-preview thead th{padding:8px;font-size:.5625rem;background:oklch(96% .003 85)}.entries-preview tbody td{padding:6px 8px;font-size:.625rem}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--pd-black);color:var(--white);padding:14px 20px;border-radius:8px;font-size:.8125rem;font-weight:500;box-shadow:0 8px 24px oklch(0% 0 0/.2);z-index:9999;transform:translateY(100px);opacity:0;transition:all 300ms var(--ease-out-expo);display:flex;align-items:center;gap:10px}.toast.visible{transform:translateY(0);opacity:1}.toast .toast-icon{color:var(--gold)}
+@media print{.brand-header,.map-section,.storage-bar,.form-actions,.actions-row,.entries-preview,.toast,.coverage-badge,.address-suggestions,.address-hint,.red-flag-section,.gmaps-link,.saved-banner,#route-info{display:none}.form-section{padding:0;margin:0;max-width:none}}
+</style>
+
+<style>
+.btn-ai{background:#171717;color:#fff;border:1px solid #171717;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.lnro-transcript-card{margin:18px 0 26px;padding:16px;border:1px solid #d8d8d2;border-left:4px solid #b8860b;border-radius:10px;background:#fafaf8;box-shadow:0 3px 14px rgba(0,0,0,.06)}
+.lnro-transcript-card-head{display:flex;gap:11px;align-items:flex-start}.lnro-transcript-card-icon{width:38px;height:38px;flex:0 0 38px;border-radius:10px;background:#171717;color:#d9ad35;display:grid;place-items:center;font-size:20px}.lnro-transcript-card-title{font-size:15px;font-weight:800;color:#171717}.lnro-transcript-card-sub{font-size:11px;line-height:1.45;color:#666;margin-top:3px;max-width:680px}.lnro-transcript-card textarea{width:100%;min-height:150px;margin-top:13px;box-sizing:border-box;border:1px solid #d2d2cc;border-radius:9px;background:#fff;padding:12px;font:13px/1.5 system-ui;color:#171717;resize:vertical}.lnro-inline-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}.lnro-inline-actions .btn{min-height:42px}.lnro-inline-note{font-size:10px;line-height:1.4;color:#666;background:#efefeb;border-radius:8px;padding:8px 10px;margin-top:9px}.lnro-inline-results{display:none;margin-top:13px;padding-top:12px;border-top:1px solid #ddd}.lnro-inline-results.visible{display:block}
+@media(max-width:600px){.lnro-transcript-card{padding:13px;margin:14px 0 22px}.lnro-transcript-card textarea{min-height:180px;font-size:14px}.lnro-inline-actions .btn{flex:1;min-width:130px}}
+.btn-ai:hover{background:#2a2a2a}
+#lnro-transcript-overlay{display:none;position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.52);align-items:flex-end;justify-content:center}
+#lnro-transcript-overlay.open{display:flex}
+.lnro-ai-sheet{background:#f7f7f5;width:100%;max-width:760px;max-height:94vh;border-radius:20px 20px 0 0;overflow:auto;padding:18px 16px calc(26px + env(safe-area-inset-bottom));box-shadow:0 -12px 50px rgba(0,0,0,.28)}
+.lnro-ai-head{display:flex;align-items:center;gap:10px}.lnro-ai-badge{width:38px;height:38px;border-radius:11px;background:#171717;color:#d9ad35;display:grid;place-items:center;font-size:20px}.lnro-ai-head h2{margin:0;font-size:18px}.lnro-ai-head p{margin:2px 0 0;color:#666;font:12px/1.35 system-ui}.lnro-ai-close{margin-left:auto;border:0;background:#e8e8e5;border-radius:50%;width:36px;height:36px;font-size:22px}
+#lnro-transcript{width:100%;min-height:210px;resize:vertical;margin-top:15px;border:1px solid #d7d7d2;border-radius:12px;background:#fff;padding:13px;font:14px/1.5 system-ui;color:#171717;box-sizing:border-box}
+.lnro-ai-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.lnro-ai-actions button{flex:1;min-width:130px}
+.lnro-ai-note{font:11px/1.45 system-ui;color:#666;background:#efefeb;border-radius:10px;padding:9px 11px;margin-top:10px}
+#lnro-ai-results{display:none;margin-top:14px}.lnro-ai-result-head{font:700 13px system-ui;margin-bottom:8px}.lnro-ai-result-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}@media(max-width:600px){.lnro-ai-result-grid{grid-template-columns:1fr}}
+.lnro-ai-field{background:#fff;border:1px solid #deded9;border-radius:9px;padding:9px}.lnro-ai-field .k{font:700 10px/1.2 system-ui;text-transform:uppercase;letter-spacing:.04em;color:#777}.lnro-ai-field .v{font:13px/1.35 system-ui;color:#171717;margin-top:3px}.lnro-ai-field .confidence{font:10px system-ui;color:#8b6a10;margin-top:4px}
+</style>
+</head>
+<body>
+<div id="iphone-hint" style="display:none;position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:99999;background:#171717;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 42px 12px 14px;font:600 13px/1.35 system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.3)">LNRO Intake is optimized for iPhone. Your entries are saved on this device.<button onclick="this.parentElement.remove()" aria-label="Close" style="position:absolute;right:8px;top:7px;border:0;background:transparent;color:#fff;font-size:24px;line-height:1;padding:4px 8px">×</button></div>
+
+
+<header class="brand-header"><div class="brand-left"><div class="pd-icon">PD</div><div class="brand-name"><span class="name">Paul Davis</span><span class="tagline">Recover · Reconstruct · Restore</span></div></div><div class="brand-right"><span class="office-name">Lynchburg, Roanoke &amp; Southside VA</span><span class="office-info">3135 Carroll Ave, Lynchburg, VA 24501 · (434) 448-0049</span></div></header>
+
+<div class="map-section">
+  <div class="panel">
+    <div class="panel-header"><h2>Territory Lookup</h2><p>ZIP codes or addresses with drive time.</p></div>
+    <div class="section"><div class="section-label">ZIP Lookup</div><div class="search-box"><svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="zip-search" placeholder="ZIP, city, county..."></div><div class="result-card" id="zip-result"><div class="result-title" id="zrt"></div><div class="result-details" id="zrd"></div></div></div>
+    <div class="section"><div class="section-label">Address</div><div class="search-box"><svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><input type="text" id="address-search" placeholder="Full address (Enter)"></div><div class="result-card" id="address-result"><div class="result-title" id="art2"></div><div class="result-details" id="ard2"></div></div></div>
+    <div class="table-section"><div class="table-header"><span class="section-label">Territory</span><span class="table-count" id="table-count">63</span></div><div class="table-scroll"><table><thead><tr><th>ZIP</th><th>City</th><th>County</th><th>Mi</th><th>Drive</th></tr></thead><tbody id="tbody"></tbody></table></div></div>
+  </div>
+  <div class="map-side"><div id="map"></div><div class="loading-indicator" id="loading">Calculating...</div></div>
+</div>
+
+<div class="form-section">
+  <div class="form-brand"><span class="form-title">Loss Intake Form</span><div class="form-pd"><div><div class="pd-mark">Paul Davis</div><div class="pd-sub">Recover · Reconstruct · Restore</div></div></div></div>
+
+  <form id="intake-form">
+    <div class="form-group-title">Step 1: Property Type</div>
+    <div class="type-selector" id="prop-type-selector"><div class="type-option" onclick="setPT('Residential')"><div class="type-icon">🏠</div><div class="type-label">Residential</div></div><div class="type-option" onclick="setPT('Commercial')"><div class="type-icon">🏢</div><div class="type-label">Commercial</div></div></div>
+    <input type="hidden" name="property_type" id="pt-input">
+
+      <div class="lnro-transcript-card" id="lnro-transcript-card">
+        <div class="lnro-transcript-card-head">
+          <div class="lnro-transcript-card-icon">✨</div>
+          <div>
+            <div class="lnro-transcript-card-title">AI Call Transcript → Intake</div>
+            <div class="lnro-transcript-card-sub">If you have a call transcript, paste it here. The app will extract the customer information and let you review it before filling out the intake.</div>
+          </div>
+        </div>
+        <textarea id="lnro-transcript-inline" placeholder="Paste the customer call transcript here...
+
+Example: Hi, my name is John Smith. We had a pipe burst yesterday at our house at 215 Church Avenue Southwest in Roanoke, VA 24011. It affected the upstairs bathroom, hallway and bedroom. We have State Farm, claim number 12345, and we'd like someone to come Tuesday morning."></textarea>
+        <div class="lnro-inline-actions">
+          <button type="button" class="btn btn-ai" onclick="LNRO.extractInlineTranscript()">✨ Extract Information</button>
+          <button type="button" class="btn btn-outline" onclick="LNRO.clearInlineTranscript()">Clear</button>
+        </div>
+        <div class="lnro-inline-note">Test mode: extraction currently runs locally on this device. Nothing is uploaded. Review the results before applying them.</div>
+        <div id="lnro-inline-results" class="lnro-inline-results">
+          <div class="lnro-ai-result-head" id="lnro-inline-result-count"></div>
+          <div class="lnro-ai-result-grid" id="lnro-inline-result-grid"></div>
+          <div class="lnro-inline-actions">
+            <button type="button" class="btn btn-primary" onclick="LNRO.applyInlineTranscript()">✓ Apply to Intake</button>
+          </div>
+        </div>
+      </div>
+
+    <div class="conditional" id="form-body">
+      <div class="form-group-title">Customer Information</div>
+      <div class="conditional" id="com-fields"><div class="form-row cols-2"><div class="form-field"><label>Business Name</label><input type="text" name="business_name"></div><div class="form-field"><label>Point of Contact</label><input type="text" name="point_of_contact"></div></div></div>
+      <div class="conditional" id="res-fields"><div class="form-row cols-2"><div class="form-field"><label>Customer Name</label><input type="text" name="customer_name"></div><div class="form-field"><label>Customer is POC?</label><div class="checkbox-group"><label class="checkbox-item"><input type="radio" name="customer_is_poc" value="Yes" checked onchange="togglePOC()"><span>Yes</span></label><label class="checkbox-item"><input type="radio" name="customer_is_poc" value="No" onchange="togglePOC()"><span>No</span></label></div></div></div><div class="conditional" id="poc-field"><div class="form-row"><div class="form-field"><label>POC Name</label><input type="text" name="res_poc"></div></div></div></div>
+
+      <div class="form-row"><div class="form-field address-field-wrapper"><label>Job Address</label><input type="text" name="job_address" id="fa" placeholder="Start typing..." autocomplete="off"><div class="address-suggestions" id="sugs"></div><div class="address-hint">Type street address for suggestions.</div></div></div>
+      <div class="form-row cols-3-1-1"><div class="form-field"><label>City</label><input type="text" name="job_city" id="fc"></div><div class="form-field"><label>State</label><input type="text" name="job_state" id="fst" value="VA"></div><div class="form-field"><label>ZIP</label><input type="text" name="job_zip" id="fz" maxlength="5"></div></div>
+      <div class="coverage-badge" id="cb"><span class="badge-icon" id="bi2"></span><div class="badge-text"><span class="badge-title" id="bt2"></span><span class="badge-detail" id="bd2"></span></div></div>
+      <a class="gmaps-link" id="gml" href="#" target="_blank" rel="noopener"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>View on Google Maps</a><button type="button" class="gmaps-link" id="route-btn" style="display:none;border:1px solid oklch(90% .004 85);font:inherit;cursor:pointer" onclick="routeToJob()">🚗 Get Fastest Route from LNRO Office</button><div id="route-info" style="display:none;margin-top:8px;padding:10px 12px;background:oklch(97% .003 85);border:1px solid oklch(90% .004 85);border-radius:7px;font-size:.75rem;line-height:1.4"></div>
+
+      <div class="form-row cols-2" style="margin-top:14px"><div class="form-field"><label>Structure Type</label><select name="structure_type" id="ss"><option value="">Select...</option></select></div><div class="form-field"><label>Year Built</label><input type="text" name="year_built" placeholder="e.g. 1985" maxlength="4"></div></div>
+
+      <div class="form-field" style="margin-top:16px"><label>Billing Address</label><div class="billing-toggle"><button type="button" class="billing-toggle-btn active" id="bs-btn" onclick="setBill('same')">Same as Job</button><button type="button" class="billing-toggle-btn" id="bd-btn" onclick="setBill('diff')">Different</button></div></div>
+      <input type="hidden" name="billing_same" id="bs-input" value="Yes">
+      <div class="conditional" id="bill-fields"><div class="form-row"><div class="form-field"><label>Billing Address</label><input type="text" name="billing_address" id="ba"></div></div><div class="form-row cols-3-1-1"><div class="form-field"><label>City</label><input type="text" name="billing_city" id="bc"></div><div class="form-field"><label>State</label><input type="text" name="billing_state" id="bst2"></div><div class="form-field"><label>ZIP</label><input type="text" name="billing_zip" id="bz"></div></div></div>
+
+      <div class="form-row cols-2" style="margin-top:16px"><div class="form-field"><label>Preferred Phone</label><input type="tel" name="preferred_phone" placeholder="(xxx) xxx-xxxx"></div><div class="form-field"><label>Contact Pref</label><div class="checkbox-group"><label class="checkbox-item"><input type="checkbox" name="pref_call" value="Call"><span>Call</span></label><label class="checkbox-item"><input type="checkbox" name="pref_text" value="Text"><span>Text</span></label><label class="checkbox-item"><input type="checkbox" name="pref_email" value="Email"><span>Email</span></label></div></div></div>
+      <div class="form-row cols-2"><div class="form-field"><label>Secondary Phone</label><input type="tel" name="secondary_phone"></div><div class="form-field"><label>Email (optional)</label><input type="email" name="email" placeholder="If available"></div></div>
+      <div class="form-row cols-2"><div class="form-field"><label>Referred By</label><input type="text" name="referred_by"></div><div class="form-field"><label>Reported By</label><select name="reported_by"><option value="">Select...</option><option>Adjuster Direct</option><option>Agent/Broker</option><option>Employee</option><option>ER Dispatch Sources</option><option>First Priority Program</option><option>IEC</option><option>Insurance Company</option><option>Police/Fire Dept.</option><option>Property Mgr./Commercial</option><option>Property Owner</option><option>Real Estate Agent</option><option>Tenant</option><option>TPA</option><option>Vendor</option></select></div></div>
+
+      <div class="form-group-title">Loss Type</div>
+      <div class="type-selector cols-6" id="lt-sel"><div class="type-option" onclick="setLT('Water')"><div class="type-icon">💧</div><div class="type-label">Water</div></div><div class="type-option" onclick="setLT('Fire')"><div class="type-icon">🔥</div><div class="type-label">Fire</div></div><div class="type-option" onclick="setLT('Mold')"><div class="type-icon">🦠</div><div class="type-label">Mold</div></div><div class="type-option" onclick="setLT('Emergency')"><div class="type-icon">🚨</div><div class="type-label">Emergency</div></div><div class="type-option" onclick="setLT('Reconstruction')"><div class="type-icon">🔨</div><div class="type-label">Reconstruction</div></div><div class="type-option" onclick="setLT('Improvement')"><div class="type-icon">✨</div><div class="type-label">Improvement</div></div></div>
+      <input type="hidden" name="loss_type" id="lt-input">
+
+      <div class="conditional" id="rooms-sec"><div class="form-field"><label>Rooms / Areas Affected</label><div class="rooms-grid"><label class="checkbox-item"><input type="checkbox" name="rooms" value="Kitchen"><span>Kitchen</span></label><label class="checkbox-item"><input type="checkbox" name="rooms" value="Master Bath"><span>Master Bath</span></label><label class="checkbox-item"><input type="checkbox" name="rooms" value="Bathroom"><span>Bathroom</span></label><label class="checkbox-item"><input type="checkbox" name="rooms" value="Master Bed"><span>Master Bed</span></label><label class="checkbox-item"><input type="checkbox" name="rooms" value="Bedroom"><span>Bedroom</span></label><label class="checkbox-item"><input type="checkbox" name="rooms" value="Living Room"><span>Living Room</span></label><label class="checkbox-item"><input type="checkbox" name="rooms" value="Dining"><span>Dining</span></label><label class="checkbox-item"><input type="checkbox" name="rooms" value="Basement"><span>Basement</span></label><label class="checkbox-item"><input type="checkbox" name="rooms" value="Attic"><span>Attic</span></label><label class="checkbox-item"><input type="checkbox" name="rooms" value="Garage"><span>Garage</span></label><label class="checkbox-item"><input type="checkbox" name="rooms" value="Laundry"><span>Laundry</span></label><label class="checkbox-item"><input type="checkbox" name="rooms" value="Hallway"><span>Hallway</span></label><label class="checkbox-item"><input type="checkbox" name="rooms" value="Crawlspace"><span>Crawlspace</span></label><label class="checkbox-item"><input type="checkbox" name="rooms" value="Office"><span>Office</span></label><label class="checkbox-item"><input type="checkbox" name="rooms" value="Exterior"><span>Exterior</span></label><label class="checkbox-item"><input type="checkbox" name="rooms" value="Other"><span>Other</span></label></div></div></div>
+
+      <!-- Loss sections condensed -->
+      <div class="conditional loss-section" id="loss-water"><div class="form-row cols-2"><div class="form-field"><label>Source</label><input type="text" name="water_source"></div><div class="form-field"><label>Category</label><select name="water_cat"><option value="">...</option><option>Clean (1)</option><option>Gray (2)</option><option>Black (3)</option><option>Unknown</option></select></div></div><div class="form-row cols-3"><div class="form-field"><label>Repaired?</label><select name="w_rep"><option value="">...</option><option>Yes</option><option>No</option><option>Unknown</option></select></div><div class="form-field"><label>Standing?</label><select name="w_stand"><option value="">...</option><option>Yes</option><option>No</option></select></div><div class="form-field"><label>Depth</label><input type="text" name="w_depth"></div></div><div class="form-row cols-2"><div class="form-field"><label>Duration</label><input type="text" name="w_dur"></div><div class="form-field"><label>Contents?</label><select name="w_cont"><option value="">...</option><option>Yes</option><option>No</option></select></div></div><div class="form-field"><label>Materials</label><div class="checkbox-group"><label class="checkbox-item"><input type="checkbox" name="w_mat" value="Drywall"><span>Drywall</span></label><label class="checkbox-item"><input type="checkbox" name="w_mat" value="Insulation"><span>Insulation</span></label><label class="checkbox-item"><input type="checkbox" name="w_mat" value="Ceiling"><span>Ceiling</span></label><label class="checkbox-item"><input type="checkbox" name="w_mat" value="Cabinets"><span>Cabinets</span></label><label class="checkbox-item"><input type="checkbox" name="w_mat" value="Carpet"><span>Carpet</span></label><label class="checkbox-item"><input type="checkbox" name="w_mat" value="Hardwood"><span>Hardwood</span></label></div></div><div class="form-row"><div class="form-field"><label>Details</label><textarea name="w_details"></textarea></div></div></div>
+      <div class="conditional loss-section" id="loss-fire"><div class="form-row cols-2"><div class="form-field"><label>Origin</label><input type="text" name="f_origin"></div><div class="form-field"><label>FD?</label><select name="f_fd"><option value="">...</option><option>Yes</option><option>No</option></select></div></div><div class="form-row cols-2"><div class="form-field"><label>Utilities</label><select name="f_util"><option value="">...</option><option>On</option><option>Off</option><option>Unknown</option></select></div><div class="form-field"><label>Safe?</label><select name="f_safe"><option value="">...</option><option>Yes</option><option>No</option><option>Unknown</option></select></div></div><div class="form-row cols-2"><div class="form-field"><label>Roof?</label><select name="f_roof"><option value="">...</option><option>Yes</option><option>No</option></select></div><div class="form-field"><label>Smoke</label><select name="f_smoke"><option value="">...</option><option>Localized</option><option>Moderate</option><option>Extensive</option></select></div></div><div class="form-row cols-2"><div class="form-field"><label>Board-Up?</label><select name="f_board"><option value="">...</option><option>Yes</option><option>No</option><option>Done</option></select></div><div class="form-field"><label>Displaced?</label><select name="f_disp"><option value="">...</option><option>Yes</option><option>No</option></select></div></div><div class="form-row"><div class="form-field"><label>Details</label><textarea name="f_details"></textarea></div></div></div>
+      <div class="conditional loss-section" id="loss-mold"><div class="form-row cols-2"><div class="form-field"><label>Location</label><input type="text" name="m_loc"></div><div class="form-field"><label>Visible?</label><select name="m_vis"><option value="">...</option><option>Yes</option><option>Odor</option><option>Suspected</option></select></div></div><div class="form-row cols-2"><div class="form-field"><label>Area</label><input type="text" name="m_area"></div><div class="form-field"><label>Moisture Source</label><input type="text" name="m_moist"></div></div><div class="form-row cols-2"><div class="form-field"><label>Prev Water?</label><select name="m_prev"><option value="">...</option><option>Yes</option><option>No</option><option>Unknown</option></select></div><div class="form-field"><label>Testing?</label><select name="m_test"><option value="">...</option><option>Yes</option><option>No</option><option>Scheduled</option></select></div></div><div class="form-row"><div class="form-field"><label>Details</label><textarea name="m_details"></textarea></div></div></div>
+      <div class="conditional loss-section" id="loss-emergency"><div class="form-row cols-2"><div class="form-field"><label>Type</label><select name="e_type"><option value="">...</option><option>Board-Up</option><option>Tarp</option><option>Tree</option><option>Extraction</option><option>Storm</option><option>Other</option></select></div><div class="form-field"><label>Hazards</label><input type="text" name="e_haz"></div></div><div class="form-row cols-2"><div class="form-field"><label>Urgency</label><select name="e_urg"><option value="">...</option><option>Immediate</option><option>Same Day</option><option>Next Day</option><option>Flexible</option></select></div><div class="form-field"><label>Secured?</label><select name="e_sec"><option value="">...</option><option>Yes</option><option>No</option></select></div></div><div class="form-row"><div class="form-field"><label>Details</label><textarea name="e_details"></textarea></div></div></div>
+      <div class="conditional loss-section" id="loss-reconstruction"><div class="form-row cols-2"><div class="form-field"><label>Prior Claim?</label><select name="r_prior"><option value="">...</option><option>Yes</option><option>No</option></select></div><div class="form-field"><label>Claim #</label><input type="text" name="r_claim"></div></div><div class="form-row cols-2"><div class="form-field"><label>Scope</label><input type="text" name="r_scope"></div><div class="form-field"><label>Size</label><select name="r_size"><option value="">...</option><option>Small</option><option>Medium</option><option>Large</option><option>Full</option></select></div></div><div class="form-row cols-2"><div class="form-field"><label>Mitigation?</label><select name="r_mit"><option value="">...</option><option>Done</option><option>No</option><option>In Progress</option></select></div><div class="form-field"><label>Permits?</label><select name="r_perm"><option value="">...</option><option>Yes</option><option>No</option><option>TBD</option></select></div></div><div class="form-row"><div class="form-field"><label>Details</label><textarea name="r_details"></textarea></div></div></div>
+      <div class="conditional loss-section" id="loss-improvement"><div class="form-row cols-2"><div class="form-field"><label>Scope</label><select name="i_scope"><option value="">...</option><option>Kitchen</option><option>Bathroom</option><option>Addition</option><option>Flooring</option><option>Paint</option><option>Full Reno</option><option>Exterior</option><option>Other</option></select></div><div class="form-field"><label>Description</label><input type="text" name="i_desc"></div></div><div class="form-row cols-2"><div class="form-field"><label>Timeline</label><select name="i_time"><option value="">...</option><option>ASAP</option><option>30 days</option><option>1-3 months</option><option>Flexible</option></select></div><div class="form-field"><label>Plans?</label><select name="i_plans"><option value="">...</option><option>Yes</option><option>No</option><option>Needs Design</option></select></div></div><div class="form-row"><div class="form-field"><label>Details</label><textarea name="i_details"></textarea></div></div></div>
+      <div class="conditional" id="dol-row"><div class="form-row cols-2" style="margin-top:12px"><div class="form-field"><label>Date of Loss</label><input type="date" name="date_of_loss"></div><div class="form-field"><label>EMS?</label><select name="ems"><option value="">...</option><option>Yes</option><option>No</option></select></div></div></div>
+
+      <!-- PAYMENT -->
+      <div class="form-group-title">Payment</div>
+      <div class="type-selector" id="pay-sel"><div class="type-option" onclick="setPay('Insurance')"><div class="type-icon">🛡️</div><div class="type-label">Insurance</div></div><div class="type-option" onclick="setPay('Self-Pay')"><div class="type-icon">💳</div><div class="type-label">Self-Pay</div></div></div>
+      <input type="hidden" name="payment_method" id="pm-input">
+      <div class="conditional" id="ins-fields"><div class="form-row cols-2"><div class="form-field"><label>Carrier</label><input type="text" name="ins_carrier"></div><div class="form-field"><label>Claim #</label><input type="text" name="claim_num"></div></div><div class="form-row cols-2"><div class="form-field"><label>Agent</label><input type="text" name="ins_agent"></div><div class="form-field"><label>Deductible</label><div class="dollar-input"><input type="text" name="deductible" placeholder="0.00"></div></div></div><div class="form-row cols-2"><div class="form-field"><label>Adjuster</label><input type="text" name="adjuster"></div><div class="form-field"><label>Adjuster #</label><input type="tel" name="adj_phone"></div></div></div>
+      <div class="conditional" id="sp-fields"><div class="form-row cols-2"><div class="form-field"><label>Estimate?</label><select name="sp_est"><option value="">...</option><option>Yes</option><option>No</option></select></div><div class="form-field"><label>Financing?</label><select name="sp_fin"><option value="">...</option><option>Yes</option><option>No</option></select></div></div><div class="form-row"><div class="form-field"><label>Payment Notes</label><textarea name="sp_notes"></textarea></div></div></div>
+      <div class="conditional" id="budget-sec"><div class="form-row cols-2" style="margin-top:12px"><div class="form-field"><label>Customer Has Budget?</label><select name="budget_status" id="bstat" onchange="togBudget()"><option value="">...</option><option value="Yes">Yes, shared</option><option value="Declined">Declined to share</option><option value="None">No budget</option></select></div><div class="form-field conditional" id="bamt-field"><label>Budget Amount</label><div class="dollar-input"><input type="text" name="budget_amount" placeholder="0.00"></div></div></div></div>
+
+      <!-- SCHEDULING -->
+      <div class="schedule-section"><div class="schedule-title">Scheduling</div>
+        <div class="form-row cols-2"><div class="form-field"><label>Inspection Needed?</label><select name="sched_needed"><option value="">...</option><option>Yes</option><option>No</option><option>Already Scheduled</option></select></div><div class="form-field"><label>Preferred Time</label><select name="sched_time"><option value="">...</option><option>Morning (8-12)</option><option>Afternoon (12-5)</option><option>Evening (5+)</option><option>Flexible</option></select></div></div>
+        <div class="form-field"><label>Preferred Day(s)</label><div class="checkbox-group"><label class="checkbox-item"><input type="checkbox" name="sched_days" value="Any Day"><span>Any Day</span></label><label class="checkbox-item"><input type="checkbox" name="sched_days" value="Monday"><span>Mon</span></label><label class="checkbox-item"><input type="checkbox" name="sched_days" value="Tuesday"><span>Tue</span></label><label class="checkbox-item"><input type="checkbox" name="sched_days" value="Wednesday"><span>Wed</span></label><label class="checkbox-item"><input type="checkbox" name="sched_days" value="Thursday"><span>Thu</span></label><label class="checkbox-item"><input type="checkbox" name="sched_days" value="Friday"><span>Fri</span></label><label class="checkbox-item"><input type="checkbox" name="sched_days" value="Saturday"><span>Sat</span></label></div></div>
+        <div class="form-row cols-2"><div class="form-field"><label>Preferred Date</label><input type="date" name="sched_date"></div><div class="form-field"><label>Alternate Date(s)</label><input type="text" name="sched_alt_dates" placeholder="e.g. 8/23, 8/25 also work"></div></div>
+        <div class="form-row cols-2"><div class="form-field"><label>Assigned To</label><input type="text" name="sched_assigned" placeholder="PM / Estimator"></div><div class="form-field"><label>Access Instructions</label><input type="text" name="sched_access" placeholder="e.g. lockbox, meet tenant"></div></div>
+        <div class="form-row"><div class="form-field"><label>Scheduling Notes</label><textarea name="sched_notes"></textarea></div></div>
+      </div>
+
+      <!-- RED FLAGS -->
+      <div class="red-flag-section"><div class="red-flag-title">Internal Assessment (team only)</div><div class="form-row cols-3"><div class="form-field"><label>Free Quote?</label><select name="rf_quote"><option value="">...</option><option>Yes</option><option>No</option></select></div><div class="form-field"><label>Pricing?</label><select name="rf_pricing"><option value="">...</option><option>Yes</option><option>No</option></select></div><div class="form-field"><label>Bid?</label><select name="rf_bid"><option value="">...</option><option>Yes</option><option>No</option><option>Unknown</option></select></div></div><div class="form-row"><div class="form-field"><label>Internal Notes</label><textarea name="rf_notes"></textarea></div></div><div class="red-flag-note">Team PDF and Excel only. Hidden from customer.</div></div>
+
+      <div class="saved-banner" id="saved-banner"><span>✓</span> Intake submitted and saved on this device. Use the buttons below for PDFs or email.</div>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-ai" onclick="LNRO.openTranscript()">✨ AI Transcript → Intake</button>
+        <button type="submit" class="btn btn-primary">✓ Save &amp; Submit Intake</button>
+        <button type="button" class="btn btn-secondary" onclick="genPDF('team')">📋 Team PDF</button>
+        <button type="button" class="btn btn-outline" onclick="genPDF('customer')">📄 Customer PDF</button>
+        <button type="button" class="btn btn-outline" onclick="clearForm()">Clear Form</button>
+      </div>
+      <div class="actions-row">
+        <button type="button" class="btn btn-email" onclick="emailTeam()">✉️ Email Team</button>
+        <button type="button" class="btn btn-outline" onclick="emailCustomer()">✉️ Email Customer</button>
+      </div>
+    </div>
+  </form>
+
+  <div class="storage-bar"><div class="storage-info"><div class="storage-count" id="entry-count">0</div><div class="storage-text"><strong>entries stored</strong></div></div><div class="storage-actions"><button class="btn btn-secondary" onclick="exportXL()">Export Excel</button><button class="btn btn-outline" onclick="togPrev()">View</button><button class="btn btn-danger" onclick="clearStor()">Clear All</button></div></div>
+  <div class="entries-preview" id="entries-preview"><div class="entries-scroll"><table><thead><tr><th>Date</th><th>Type</th><th>Loss</th><th>Customer</th><th>ZIP</th><th>Pay</th></tr></thead><tbody id="prev-tb"></tbody></table></div></div>
+</div>
+
+<div class="toast" id="toast"><span class="toast-icon">✓</span><span id="toast-msg"></span></div><div id="lnro-transcript-overlay" onclick="if(event.target===this)LNRO.closeTranscript()">
+  <div class="lnro-ai-sheet">
+    <div class="lnro-ai-head"><div class="lnro-ai-badge">✨</div><div><h2>AI Call Transcript → Intake</h2><p>Paste the customer-call transcript and extract only information actually stated.</p></div><button class="lnro-ai-close" onclick="LNRO.closeTranscript()">×</button></div>
+    <textarea id="lnro-transcript" placeholder="Paste the call transcript here...
+
+Example: Hi, my name is John Smith. We had a pipe burst yesterday at our house at 215 Church Avenue Southwest in Roanoke. It affected the upstairs bathroom, hallway and bedroom. We have State Farm, claim number 12345, and we'd like someone to come Tuesday morning."></textarea>
+    <div class="lnro-ai-actions"><button type="button" class="btn btn-ai" onclick="LNRO.extractTranscript()">✨ Extract Information</button><button type="button" class="btn btn-outline" onclick="document.getElementById('lnro-transcript').value='';document.getElementById('lnro-ai-results').style.display='none'">Clear</button></div>
+    <div class="lnro-ai-note">Test mode: extraction runs locally in this app. The transcript is not uploaded to a server. Review the results before applying them to the intake.</div>
+    <div id="lnro-ai-results"><div class="lnro-ai-result-head" id="lnro-ai-result-count"></div><div class="lnro-ai-result-grid" id="lnro-ai-result-grid"></div><div class="lnro-ai-actions"><button type="button" class="btn btn-primary" onclick="LNRO.applyTranscript()">✓ Apply to Intake</button><button type="button" class="btn btn-outline" onclick="LNRO.closeTranscript()">Cancel</button></div></div>
+  </div>
+</div>
+
+
+<script>
+const OFF_ADDR='3135 Carroll Ave, Suite A, Lynchburg, VA 24501';const OFF={lat:37.4138,lng:-79.1422};let officeCoords=null,routeLayer=null,currentJobCoords=null;const D=[{zip:"23901",city:"Farmville",county:"Prince Edward",region:"Farmville / Prince Edward",lat:37.3018,lng:-78.3917},{zip:"23943",city:"Keysville",county:"Charlotte",region:"Farmville / Prince Edward",lat:37.0382,lng:-78.4833},{zip:"23958",city:"Phenix",county:"Charlotte",region:"Farmville / Prince Edward",lat:37.096,lng:-78.758},{zip:"23960",city:"Prospect",county:"Prince Edward",region:"Farmville / Prince Edward",lat:37.3008,lng:-78.556},{zip:"24011",city:"Roanoke",county:"Roanoke City",region:"Roanoke Metro",lat:37.271,lng:-79.9414},{zip:"24012",city:"Roanoke",county:"Roanoke City",region:"Roanoke Metro",lat:37.293,lng:-79.901},{zip:"24013",city:"Roanoke",county:"Roanoke City",region:"Roanoke Metro",lat:37.266,lng:-79.92},{zip:"24014",city:"Roanoke",county:"Roanoke City",region:"Roanoke Metro",lat:37.242,lng:-79.928},{zip:"24015",city:"Roanoke",county:"Roanoke City",region:"Roanoke Metro",lat:37.261,lng:-79.978},{zip:"24016",city:"Roanoke",county:"Roanoke City",region:"Roanoke Metro",lat:37.272,lng:-79.956},{zip:"24017",city:"Roanoke",county:"Roanoke City",region:"Roanoke Metro",lat:37.3,lng:-79.97},{zip:"24018",city:"Roanoke",county:"Roanoke County",region:"Roanoke Metro",lat:37.22,lng:-80.01},{zip:"24019",city:"Roanoke",county:"Roanoke County",region:"Roanoke Metro",lat:37.334,lng:-79.943},{zip:"24020",city:"Roanoke",county:"Roanoke County",region:"Roanoke Metro",lat:37.312,lng:-79.919},{zip:"24054",city:"Martinsville",county:"Henry",region:"Martinsville / Henry",lat:36.691,lng:-79.872},{zip:"24064",city:"Blue Ridge",county:"Botetourt",region:"Roanoke Metro",lat:37.379,lng:-79.807},{zip:"24065",city:"Boones Mill",county:"Franklin",region:"Roanoke Metro",lat:37.122,lng:-79.954},{zip:"24069",city:"Cascade",county:"Pittsylvania",region:"Smith Mtn Lake / Franklin",lat:36.591,lng:-79.668},{zip:"24077",city:"Cloverdale",county:"Botetourt",region:"Roanoke Metro",lat:37.364,lng:-79.9},{zip:"24078",city:"Collinsville",county:"Henry",region:"Martinsville / Henry",lat:36.72,lng:-79.919},{zip:"24083",city:"Daleville",county:"Botetourt",region:"Roanoke Metro",lat:37.408,lng:-79.923},{zip:"24089",city:"Fieldale",county:"Henry",region:"Martinsville / Henry",lat:36.701,lng:-79.968},{zip:"24092",city:"Glade Hill",county:"Franklin",region:"Smith Mtn Lake / Franklin",lat:37.01,lng:-79.79},{zip:"24095",city:"Henry",county:"Franklin",region:"Smith Mtn Lake / Franklin",lat:37.04,lng:-79.638},{zip:"24101",city:"Hardy",county:"Bedford",region:"Smith Mtn Lake / Franklin",lat:37.17,lng:-79.87},{zip:"24104",city:"Huddleston",county:"Bedford",region:"Smith Mtn Lake / Franklin",lat:37.149,lng:-79.522},{zip:"24112",city:"Martinsville",county:"Martinsville City",region:"Martinsville / Henry",lat:36.682,lng:-79.864},{zip:"24121",city:"Moneta",county:"Bedford",region:"Smith Mtn Lake / Franklin",lat:37.11,lng:-79.65},{zip:"24122",city:"Montvale",county:"Bedford",region:"Smith Mtn Lake / Franklin",lat:37.401,lng:-79.726},{zip:"24137",city:"Penhook",county:"Franklin",region:"Smith Mtn Lake / Franklin",lat:36.96,lng:-79.66},{zip:"24139",city:"Pittsville",county:"Pittsylvania",region:"Martinsville / Henry",lat:36.872,lng:-79.536},{zip:"24148",city:"Ridgeway",county:"Henry",region:"Martinsville / Henry",lat:36.628,lng:-79.868},{zip:"24151",city:"Rocky Mount",county:"Franklin",region:"Smith Mtn Lake / Franklin",lat:37.0,lng:-79.891},{zip:"24153",city:"Salem",county:"Salem City",region:"Roanoke Metro",lat:37.293,lng:-80.054},{zip:"24161",city:"Spencer",county:"Henry",region:"Martinsville / Henry",lat:36.96,lng:-80.01},{zip:"24168",city:"Stanleytown",county:"Henry",region:"Martinsville / Henry",lat:36.741,lng:-79.949},{zip:"24174",city:"Union Hall",county:"Franklin",region:"Smith Mtn Lake / Franklin",lat:37.027,lng:-79.693},{zip:"24176",city:"Vesta",county:"Patrick",region:"Martinsville / Henry",lat:36.721,lng:-80.37},{zip:"24179",city:"Vinton",county:"Roanoke County",region:"Roanoke Metro",lat:37.28,lng:-79.896},{zip:"24184",city:"Wirtz",county:"Franklin",region:"Smith Mtn Lake / Franklin",lat:37.07,lng:-79.74},{zip:"24501",city:"Lynchburg",county:"Lynchburg City",region:"Lynchburg / Campbell",lat:37.4138,lng:-79.1422},{zip:"24504",city:"Lynchburg",county:"Lynchburg City",region:"Lynchburg / Campbell",lat:37.383,lng:-79.178},{zip:"24517",city:"Altavista",county:"Campbell",region:"Lynchburg / Campbell",lat:37.1117,lng:-79.2867},{zip:"24521",city:"Amherst",county:"Amherst",region:"Lynchburg / Campbell",lat:37.5851,lng:-79.0512},{zip:"24523",city:"Bedford",county:"Bedford",region:"Lynchburg / Campbell",lat:37.3341,lng:-79.5231},{zip:"24530",city:"Brookneal",county:"Campbell",region:"Danville / Pittsylvania",lat:37.05,lng:-79.0},{zip:"24531",city:"Chatham",county:"Pittsylvania",region:"Danville / Pittsylvania",lat:36.826,lng:-79.398},{zip:"24536",city:"Coleman Falls",county:"Bedford",region:"Lynchburg / Campbell",lat:37.513,lng:-79.372},{zip:"24538",city:"Concord",county:"Campbell",region:"Lynchburg / Campbell",lat:37.347,lng:-79.081},{zip:"24540",city:"Danville",county:"Danville City",region:"Danville / Pittsylvania",lat:36.599,lng:-79.422},{zip:"24541",city:"Danville",county:"Danville City",region:"Danville / Pittsylvania",lat:36.571,lng:-79.385},{zip:"24549",city:"Dry Fork",county:"Pittsylvania",region:"Danville / Pittsylvania",lat:36.759,lng:-79.5},{zip:"24550",city:"Evington",county:"Campbell",region:"Lynchburg / Campbell",lat:37.26,lng:-79.18},{zip:"24551",city:"Forest",county:"Bedford",region:"Lynchburg / Campbell",lat:37.372,lng:-79.283},{zip:"24553",city:"Gladys",county:"Campbell",region:"Lynchburg / Campbell",lat:37.248,lng:-79.081},{zip:"24556",city:"Goode",county:"Bedford",region:"Lynchburg / Campbell",lat:37.359,lng:-79.381},{zip:"24557",city:"Gretna",county:"Pittsylvania",region:"Danville / Pittsylvania",lat:36.953,lng:-79.362},{zip:"24563",city:"Hurt",county:"Pittsylvania",region:"Lynchburg / Campbell",lat:37.092,lng:-79.296},{zip:"24570",city:"Madison Heights",county:"Amherst",region:"Lynchburg / Campbell",lat:37.43,lng:-79.12},{zip:"24572",city:"Monroe",county:"Amherst",region:"Lynchburg / Campbell",lat:37.469,lng:-79.19},{zip:"24574",city:"Naruna",county:"Campbell",region:"Lynchburg / Campbell",lat:37.209,lng:-79.083},{zip:"24588",city:"Rustburg",county:"Campbell",region:"Lynchburg / Campbell",lat:37.277,lng:-79.103},{zip:"24593",city:"Spout Spring",county:"Appomattox",region:"Lynchburg / Campbell",lat:37.338,lng:-79.02}];
+function hav(a,b,c,d){const R=3958.8,dL=(c-a)*Math.PI/180,dN=(d-b)*Math.PI/180,x=Math.sin(dL/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dN/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}function estDr(s){const f=s<15?1.25:s<40?1.35:1.4,m=Math.round(s*f),sp=s<15?35:s<40?45:52,min=Math.round((m/sp)*60),h=Math.floor(min/60),mn=min%60;return{miles:m,time:h>0?`${h}h ${mn}m`:`${mn} min`}}
+D.forEach(d=>{const s=hav(OFF.lat,OFF.lng,d.lat,d.lng),e=estDr(s);d.miles=e.miles;d.driveTime=e.time});D.sort((a,b)=>a.zip.localeCompare(b.zip));
+const map=L.map('map',{center:[37.1,-79.5],zoom:9});L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'© OSM',subdomains:'abcd',maxZoom:19}).addTo(map);L.marker([OFF.lat,OFF.lng],{icon:L.divIcon({className:'',html:'<div style="width:14px;height:14px;background:#b8860b;border:2.5px solid #fff;border-radius:2px;transform:rotate(45deg);box-shadow:0 2px 6px rgba(0,0,0,.3)"></div>',iconSize:[14,14],iconAnchor:[7,7]})}).addTo(map);
+const rc={"Roanoke Metro":"#4a5568","Lynchburg / Campbell":"#b8860b","Smith Mtn Lake / Franklin":"#6b5b3e","Martinsville / Henry":"#5a5a5a","Danville / Pittsylvania":"#8b7530","Farmville / Prince Edward":"#7a6b50"};const zm={};D.forEach(d=>{const m=L.circleMarker([d.lat,d.lng],{radius:6,fillColor:rc[d.region]||'#666',color:'#fff',weight:1.5,fillOpacity:.8}).addTo(map);m.bindPopup(`<strong>${d.zip}</strong> ${d.city}<br>${d.miles} mi`);m.on('click',()=>selZip(d.zip));zm[d.zip]=m});
+const zi=document.getElementById('zip-search'),zr=document.getElementById('zip-result');function selZip(z){const d=D.find(i=>i.zip===z);if(!d)return;zi.value=z;document.getElementById('zrt').innerHTML=`${d.zip} — ${d.city} <span class="in-territory">Covered</span>`;document.getElementById('zrd').innerHTML=`<div class="result-detail"><span class="detail-label">County</span><span class="detail-value">${d.county}</span></div><div class="result-detail"><span class="detail-label">${d.miles} mi</span><span class="detail-value">${d.driveTime}</span></div>`;zr.classList.add('visible');map.setView([d.lat,d.lng],11)}
+zi.addEventListener('input',()=>{const q=zi.value.trim().toLowerCase();if(!q){zr.classList.remove('visible');renderTbl(D);return}const f=D.filter(d=>d.zip.includes(q)||d.city.toLowerCase().includes(q)||d.county.toLowerCase().includes(q));renderTbl(f);if(f.length===1)selZip(f[0].zip);else zr.classList.remove('visible')});
+const ai2=document.getElementById('address-search'),ar2=document.getElementById('address-result');const routeBtn=document.getElementById('route-btn'),routeInfo=document.getElementById('route-info');
+async function getOfficeCoords(){if(officeCoords)return officeCoords;try{const r=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(OFF_ADDR)}&countrycodes=us&limit=1&addressdetails=1`,{headers:{'Accept':'application/json'}});const a=await r.json();if(a.length){officeCoords={lat:+a[0].lat,lng:+a[0].lon};return officeCoords}}catch(e){}return OFF}
+async function drawRoute(lat,lng){currentJobCoords={lat:+lat,lng:+lng};routeBtn.disabled=true;routeBtn.textContent='⏳ Calculating fastest route…';routeInfo.style.display='block';routeInfo.innerHTML='Calculating driving route from 3135 Carroll Ave, Suite A…';try{const o=await getOfficeCoords();const u=`https://router.project-osrm.org/route/v1/driving/${o.lng},${o.lat};${lng},${lat}?overview=full&geometries=geojson&steps=false`;const r=await fetch(u);const j=await r.json();if(!j.routes?.length)throw new Error('No route');const rt=j.routes[0];if(routeLayer)map.removeLayer(routeLayer);routeLayer=L.geoJSON(rt.geometry,{style:{color:'#b8860b',weight:5,opacity:.9}}).addTo(map);map.fitBounds(routeLayer.getBounds(),{padding:[30,30]});const miles=(rt.distance/1609.344).toFixed(1),mins=Math.round(rt.duration/60),time=mins>=60?`${Math.floor(mins/60)}h ${mins%60}m`:`${mins} min`;routeInfo.innerHTML=`<div class="route-summary">🚗 ${miles} mi · ${time}</div><div class="route-sub">Fastest driving route from ${OFF_ADDR}</div>`;routeBtn.textContent='↻ Recalculate Route';routeBtn.disabled=false}catch(e){routeInfo.innerHTML='Unable to calculate the route right now. Please check your internet connection and try again.';routeBtn.textContent='🚗 Try Route Again';routeBtn.disabled=false}}
+function routeToJob(){if(currentJobCoords)drawRoute(currentJobCoords.lat,currentJobCoords.lng)}
+ai2.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();pAddr()}});
+async function pAddr(){const q=ai2.value.trim();if(!q)return;document.getElementById('loading').classList.add('visible');try{const r=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=us&limit=1&addressdetails=1`,{headers:{'User-Agent':'PDR/1.0'}});const g=await r.json();if(g.length){const p=g[0],lat=+p.lat,lng=+p.lon,dn=p.display_name.split(',').slice(0,3).join(','),pc=p.address?.postcode||'',inT=D.some(d=>d.zip===pc),e=estDr(hav(OFF.lat,OFF.lng,lat,lng));document.getElementById('art2').innerHTML=`${dn} ${inT?'<span class="in-territory">Covered</span>':'<span class="out-territory">Outside</span>'}`;document.getElementById('ard2').innerHTML=`<div class="result-detail"><span class="detail-label">ZIP ${pc}</span><span class="detail-value">${e.miles} mi · ${e.time}</span></div>`;ar2.classList.add('visible');currentJobCoords={lat,lng};routeBtn.classList.add('visible');map.setView([lat,lng],13)}}catch(e){}document.getElementById('loading').classList.remove('visible')}
+function renderTbl(items){const tb=document.getElementById('tbody');document.getElementById('table-count').textContent=items.length;tb.innerHTML=items.map(d=>`<tr onclick="selZip('${d.zip}')"><td>${d.zip}</td><td>${d.city}</td><td>${d.county}</td><td>${d.miles}</td><td>${d.driveTime}</td></tr>`).join('')}renderTbl(D);
+
+// FORM
+const resO=['Single Family','Duplex','Townhouse','Condo/Apartment','Mobile/Manufactured','Multi-Family'];const comO=['Office','Retail','Warehouse','Restaurant','Industrial','Multi-Tenant','Religious'];
+function setPT(t){document.getElementById('pt-input').value=t;document.querySelectorAll('#prop-type-selector .type-option').forEach((el,i)=>el.classList.toggle('active',i===(t==='Residential'?0:1)));document.getElementById('res-fields').classList.toggle('visible',t==='Residential');document.getElementById('com-fields').classList.toggle('visible',t==='Commercial');document.getElementById('form-body').classList.add('visible');document.getElementById('ss').innerHTML='<option value="">Select...</option>'+(t==='Residential'?resO:comO).map(o=>`<option>${o}</option>`).join('')}
+function togglePOC(){document.getElementById('poc-field').classList.toggle('visible',document.querySelector('[name="customer_is_poc"][value="No"]')?.checked)}
+function setBill(m){const s=m==='same';document.getElementById('bs-btn').classList.toggle('active',s);document.getElementById('bd-btn').classList.toggle('active',!s);document.getElementById('bs-input').value=s?'Yes':'No';document.getElementById('bill-fields').classList.toggle('visible',!s);if(s){document.getElementById('ba').value=document.getElementById('fa').value;document.getElementById('bc').value=document.getElementById('fc').value;document.getElementById('bst2').value=document.getElementById('fst').value;document.getElementById('bz').value=document.getElementById('fz').value}}
+function setLT(t){document.getElementById('lt-input').value=t;document.querySelectorAll('#lt-sel .type-option').forEach(el=>el.classList.toggle('active',el.querySelector('.type-label').textContent.trim()===t));['water','fire','mold','emergency','reconstruction','improvement'].forEach(id=>document.getElementById('loss-'+id).classList.remove('visible'));const m={'Water':'water','Fire':'fire','Mold':'mold','Emergency':'emergency','Reconstruction':'reconstruction','Improvement':'improvement'};if(m[t])document.getElementById('loss-'+m[t]).classList.add('visible');document.getElementById('dol-row').classList.toggle('visible',['Water','Fire','Mold','Emergency'].includes(t));document.getElementById('rooms-sec').classList.toggle('visible',t!=='Improvement')}
+function setPay(m){document.getElementById('pm-input').value=m;document.querySelectorAll('#pay-sel .type-option').forEach((el,i)=>el.classList.toggle('active',i===(m==='Insurance'?0:1)));document.getElementById('ins-fields').classList.toggle('visible',m==='Insurance');document.getElementById('sp-fields').classList.toggle('visible',m==='Self-Pay');document.getElementById('budget-sec').classList.add('visible')}
+function togBudget(){document.getElementById('bamt-field').classList.toggle('visible',document.getElementById('bstat').value==='Yes')}
+
+// Address autocomplete
+const fa=document.getElementById('fa'),fc2=document.getElementById('fc'),fst2=document.getElementById('fst'),fz2=document.getElementById('fz'),sugs=document.getElementById('sugs'),gml=document.getElementById('gml');let dt=null,sup=false;
+fa.addEventListener('input',function(){clearTimeout(dt);if(sup){sup=false;return}const v=this.value.trim();if(v.length<5||!/\d/.test(v)){sugs.classList.remove('visible');return}dt=setTimeout(()=>fetchS(v),400)});fa.addEventListener('blur',()=>setTimeout(()=>sugs.classList.remove('visible'),200));
+async function fetchS(q){sugs.innerHTML='<div class="suggestion-loading">Searching...</div>';sugs.classList.add('visible');try{let r=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q+', Virginia')}&countrycodes=us&limit=5&addressdetails=1`,{headers:{'User-Agent':'PDR/1.0'}});let res=await r.json();if(!res.length){r=await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=us&limit=5&addressdetails=1`,{headers:{'User-Agent':'PDR/1.0'}});res=await r.json()}if(!res.length){sugs.innerHTML='<div class="suggestion-loading">No matches</div>';return}sugs.innerHTML=res.map(r=>{const a=r.address||{},st=[a.house_number,a.road].filter(Boolean).join(' '),city=a.city||a.town||a.village||'',zip=a.postcode||'',inT=D.some(d=>d.zip===zip);return`<div class="suggestion-item" onclick='pickS(${JSON.stringify({street:st,city,state:a.state_code||"VA",zip,lat:r.lat,lng:r.lon})})'><div class="sug-main">${st||r.display_name.split(',')[0]}${inT?' ✓':''}</div><div class="sug-detail">${city}, ${a.state||''} ${zip}</div></div>`}).join('')}catch(e){sugs.classList.remove('visible')}}
+function pickS(s){sup=true;fa.value=s.street;fc2.value=s.city;fst2.value=s.state||'VA';fz2.value=s.zip;sugs.classList.remove('visible');currentJobCoords=(s.lat&&s.lng)?{lat:+s.lat,lng:+s.lng}:null;if(currentJobCoords)routeBtn.classList.add('visible');if(s.zip?.length===5)chkCov(s.zip);if(document.getElementById('bs-input').value==='Yes'){document.getElementById('ba').value=s.street;document.getElementById('bc').value=s.city;document.getElementById('bst2').value=s.state||'VA';document.getElementById('bz').value=s.zip}gml.href=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.street+', '+s.city+', '+s.state+' '+s.zip)}`;gml.classList.add('visible')}
+const cbEl=document.getElementById('cb'),bi2=document.getElementById('bi2'),bt2=document.getElementById('bt2'),bd2El=document.getElementById('bd2');
+fz2.addEventListener('input',function(){if(this.value.trim().length===5)chkCov(this.value.trim());else cbEl.classList.remove('visible','covered','not-covered')});
+function chkCov(zip){const m=D.find(d=>d.zip===zip);cbEl.classList.add('visible');if(m){cbEl.classList.remove('not-covered');cbEl.classList.add('covered');bi2.textContent='✓';bt2.textContent=`In Territory — ${m.city}, ${m.county}`;bd2El.textContent=`${m.region} · ${m.miles} mi · ${m.driveTime}`}else{cbEl.classList.remove('covered');cbEl.classList.add('not-covered');bi2.textContent='⚠';bt2.textContent=`ZIP ${zip} outside territory`;bd2El.textContent='Not in coverage'}if(!gml.classList.contains('visible')&&fa.value){gml.href=`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fa.value+', '+fc2.value+', '+fst2.value+' '+zip)}`;gml.classList.add('visible')}}
+
+// COLLECT DATA
+function getFD(forExcel){const form=document.getElementById('intake-form'),fd={};form.querySelectorAll('input[type="text"],input[type="tel"],input[type="email"],input[type="date"],input[type="hidden"],textarea').forEach(el=>{if(el.name)fd[el.name]=el.value||(forExcel?'Not Provided':'')});form.querySelectorAll('select').forEach(el=>{if(el.name){const v=el.value;fd[el.name]=(v&&v!=='...')?v:(forExcel?'N/A':'')}});form.querySelectorAll('input[type="radio"]:checked').forEach(el=>{fd[el.name]=el.value});const cg={};form.querySelectorAll('input[type="checkbox"]:checked').forEach(el=>{if(!cg[el.name])cg[el.name]=[];cg[el.name].push(el.value)});Object.entries(cg).forEach(([k,v])=>fd[k]=v.join(', '));if(fd.billing_same==='Yes'){fd.billing_address=fd.job_address;fd.billing_city=fd.job_city;fd.billing_state=fd.job_state;fd.billing_zip=fd.job_zip}const zip=fz2.value.trim(),match=D.find(d=>d.zip===zip);fd.coverage=match?`In Territory (${match.region}, ${match.miles} mi)`:(forExcel?'Outside Territory':'Outside');return fd}
+
+// SAVE
+document.getElementById('intake-form').addEventListener('submit',function(e){e.preventDefault();if(!document.getElementById('pt-input').value){showT('Select property type');return}const fd=getFD(true);fd.submitted_at=new Date().toLocaleString();const entries=getE();entries.push(fd);saveE(entries);document.getElementById('saved-banner').classList.add('visible');showT(`Saved #${entries.length}`)});
+
+// EMAIL TEAM
+function emailTeam(){const fd=getFD(false);const name=fd.customer_name||fd.business_name||'New Lead';const subj=`New Intake: ${name}, ${fd.job_address||''}, ${fd.job_city||''} ${fd.job_zip||''} (${fd.loss_type||'TBD'})`;let body=`PAUL DAVIS LNRO - NEW INTAKE\n${'='.repeat(40)}\n\nCUSTOMER: ${name}\n`;if(fd.point_of_contact)body+=`POC: ${fd.point_of_contact}\n`;if(fd.res_poc)body+=`POC: ${fd.res_poc}\n`;body+=`ADDRESS: ${fd.job_address||''}, ${fd.job_city||''}, ${fd.job_state||''} ${fd.job_zip||''}\nSTRUCTURE: ${fd.structure_type||'N/A'}, Year: ${fd.year_built||'N/A'}\nCOVERAGE: ${fd.coverage}\nPHONE: ${fd.preferred_phone||'N/A'}`;if(fd.pref_call||fd.pref_text||fd.pref_email)body+=` (${[fd.pref_call,fd.pref_text,fd.pref_email].filter(Boolean).join(', ')})`;body+=`\nEMAIL: ${fd.email||'Not Provided'}\n\n--- LOSS ---\nTYPE: ${fd.loss_type||'N/A'}\n`;if(fd.date_of_loss)body+=`DATE: ${fd.date_of_loss}\n`;if(fd.rooms)body+=`ROOMS: ${fd.rooms}\n`;if(fd.water_source)body+=`SOURCE: ${fd.water_source} (${fd.water_cat||''})\n`;if(fd.f_origin)body+=`ORIGIN: ${fd.f_origin}\n`;if(fd.m_loc)body+=`LOCATION: ${fd.m_loc}\n`;if(fd.e_type)body+=`EMERGENCY: ${fd.e_type}\n`;if(fd.r_scope)body+=`SCOPE: ${fd.r_scope}\n`;if(fd.i_scope)body+=`SCOPE: ${fd.i_scope} ${fd.i_desc||''}\n`;body+=`\n--- PAYMENT ---\nMETHOD: ${fd.payment_method||'N/A'}\n`;if(fd.ins_carrier)body+=`CARRIER: ${fd.ins_carrier}, Claim: ${fd.claim_num||'N/A'}\n`;if(fd.deductible)body+=`DEDUCTIBLE: $${fd.deductible}\n`;if(fd.budget_status)body+=`BUDGET: ${fd.budget_status==='Yes'?'$'+fd.budget_amount:fd.budget_status}\n`;body+=`\n--- SCHEDULING ---\nINSPECTION: ${fd.sched_needed||'N/A'}\n`;if(fd.sched_days)body+=`DAYS: ${fd.sched_days}\n`;if(fd.sched_date)body+=`DATE: ${fd.sched_date}\n`;if(fd.sched_alt_dates)body+=`ALT DATES: ${fd.sched_alt_dates}\n`;if(fd.sched_time)body+=`TIME: ${fd.sched_time}\n`;if(fd.sched_assigned)body+=`ASSIGNED: ${fd.sched_assigned}\n`;if(fd.sched_access)body+=`ACCESS: ${fd.sched_access}\n`;if(fd.sched_notes)body+=`NOTES: ${fd.sched_notes}\n`;body+=`\n--- INTERNAL ---\n`;if(fd.rf_quote)body+=`FREE QUOTE: ${fd.rf_quote}\n`;if(fd.rf_pricing)body+=`PRICING: ${fd.rf_pricing}\n`;if(fd.rf_bid)body+=`BID: ${fd.rf_bid}\n`;if(fd.rf_notes)body+=`NOTES: ${fd.rf_notes}\n`;body+=`\nReported: ${fd.reported_by||'N/A'} | Referred: ${fd.referred_by||'N/A'}`;
+window.location.href=`mailto:lnro.info@pauldavis.com?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`;showT('Opening team email...')}
+
+// EMAIL CUSTOMER
+function emailCustomer(){const fd=getFD(false);const name=fd.customer_name||fd.business_name||'';const subj='Paul Davis - Your Service Request Confirmation';let body=`Hi ${name},\n\nThank you for reaching out to Paul Davis Restoration. We received your information and are working to get you taken care of.\n\nSummary:\n\nService Address: ${fd.job_address||''}, ${fd.job_city||''}, ${fd.job_state||''} ${fd.job_zip||''}\nService Type: ${fd.loss_type||'TBD'}\n`;if(fd.sched_days)body+=`Preferred Days: ${fd.sched_days}\n`;if(fd.sched_date)body+=`Preferred Date: ${fd.sched_date}\n`;if(fd.sched_alt_dates)body+=`Alternate Dates: ${fd.sched_alt_dates}\n`;if(fd.sched_time)body+=`Time: ${fd.sched_time}\n`;body+=`\nWe are transferring this to our team now. Someone will reach out to confirm the initial visit and next steps.\n\nQuestions? Call (434) 448-0049.\n\nThank you,\nPaul Davis Restoration\nLynchburg, Roanoke & Southside VA\n(434) 448-0049\nlnro.info@pauldavis.com`;
+window.location.href=`mailto:${fd.email||''}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`;showT('Opening customer email...')}
+
+// PDF
+function genPDF(type){
+  const{jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:'mm',format:'letter',compress:true});
+  const fd=getFD(false);
+  const W=215.9,H=279.4;
+  const M=15,R=W-M;
+  const GOLD=[184,134,11],BLACK=[23,23,23],DARK=[55,55,55],MID=[105,105,105],LIGHT=[245,245,243],LINE=[224,224,220],WHITE=[255,255,255];
+  let y=0;
+  let page=1;
+  const logoData='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAIAAAB7GkOtAAAcA0lEQVR42u3dfZhVdaHo8d/ae8/wNg7MCMibIhhiCSiSCYFO2sGTcUOpW5lG3YPp6XlKi+rgtdQrlZUeT2Cd7pN6vdq56vHpTfGmdq/pDeVFSNOQAlTwCAOIvM4MM8PM7L3X/UPPyZjNNMDew8ysz+fpD581w97T2mv9vuu39tprR1VVVQGA5ElZBQACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAECXy1gFPcu//kOrlUB39ql/LLcSeoqoqqrKWjDWgyoIAEZ80AMBwKAPYiAAGPdBCQQA4z4ogQBg6AcZEACM+6AEAoChH2RAAAz9gAwIgKHfDoC9wF4gADZ6Gzr2DnuHANi4bdPYZewyApDwTdlGjN3H7iMAydp2bbhgbxKAZG2stlSwcwlAsjZQmybY0QQgcRulLRLscQJgQwTsfQLQ27c/Gx/YDQUgcZudbQ7sjwJgUwPsm91XyiqwhUHPcgT7mls0mgGUalsx9INd1QzAJgV036mAeYAZQNG2D0M/2HPNAGxDQI+ZCpgHCIDRHzQg6ZwCOrytwdAPdmczAJsL0LOnAuYBSQ+A0R80QACM/kZ/0AABMPob/UEDBMDob/QHDRAAWw9gLxaAZBz+224gUQ1I4CQgcQEw+oMGaEASA2D0Bw3QgOTOAIz+YO8mcQHoTNhtH6AByZkEJCUARn9AA5IYAHf8AIwbyZ0BOPwH7O+JC4CTP8CR7fW9fhJgBmD0B/u+GUBSD/8BkjmGpBL+yjkEAJOAxDYg5bUHjAPJ1GsD4OQPYDwxA5B9wGiQmAD81Vwb/YHDGhN65STAZaAACdULA+DwHzAJMAMAIDEBcPgPmASYAQCQmAA4/AdMAswAABAAh/+AsaJ3B8C9HwCjjRmAw3/AiJGYADj8B4w5ZgAACEDCZnOAcSNxAXD+BzDymAEAIABJmscBRo8kBsD5H8D4YwYAgAAkZgYHGEMEAIAkBcAbAIBRyAwgcXM3wEgiAAAIAAACAECvDYB3gAFjkRlAAd4BBownCQ0AAAIAgAAAIAAAAgCAAPQcHV935RIgoLg6HlV66JWgZgAAZgAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAIABWAYAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAAACAIAAACAAAAgAAAIAgAAAIAAACAAAAgCAAAAgAAAIAIAAACAAACRCxirolX74922DK+Nj/mfk8qE1G7K50JaNWrOhoTnsa4zqGkNdU7SrPtq6O9q6O2pqScSqi+OQf+t/+bf/uy0bteVCWy60ZUNbNhxoi5pbQnNraG6NmltCQ3NoaI7qm0NDU1TXFPbuj3J52zUCQM+RToV+5W8PgCGEYVVv/8c77d0fbdkZra+N/lSb2rg9yuZ656qIopCOQjqEkP73RX0OWhVxx/3Y2xjtaQi76qPte6Pte6Lte6Jte7pdPhEAOAxVFXFVRTxpTAgh15YN62tTz25IrX4ltb/ZuvmLflRXxNUV4V3D43cWY8fe6LUd0Ws7ovW1qU1vmCUgAPRYZZkw8eT8xJPz82aGta+nnlqT+t0rqTi2Yg5RhRCGVcXDquJpp4UQcgdaw/qtqd+/mvrdK9G+xsj6QQDokdKpcMaY/Blj8m/uix57PvXbl9ItbdbKX9G3PJw5Jn/mmPzfzQwvb42Wrk0/uz7V3GrFIAD0TEMHxf/lg7k5U/MPPpNe+lLKZKCTM4PxI+PxI7OfvSCsWJd69Ln01t0mBAgAPdPAAfHffyg788zont9kXt1uLOusPmXh/En5D0zKv7Ax9dDKtFXHQXwOgB5j7LB44eVtc6bmIuPYYU4Izjol/61Pt82/ODui2iQKAaCHbq9R+MS5ua9/PDtwgIHssL3v1Pytf9d2WU2uT5mVgQDQM00Ynf/mZdmhgzTgsKVT4SPvy902r23iaFeMIgD0TEMHxQsvy544WAOOxODK+LpPZD99fq4sbWUIAPRAgwbEN17aNqxKA45EFMKs9+YWXt52/HFWoABAD1TRLyz4WHZAX2viCI05If7OZ9rePUoDBAB6oOFV8fyLsynXBR2pyv7h659omzreWwICAD3Q6SflZ52dsx6OWCYdrvlIduaZGiAA0AN9fHpuuDcDjkIUhXkzsxdM0gABgJ6mLBOu/FDWejhKn7swO+00DRAA6GnePSqeeLLB62jnAV+YlT1zrNUoANDTfOz93gk4WulUmH9xdtwI59MSwc3g6JRP/1N5579spE9ZGNA3HtA3VPaLxw6Lx42Ix42IB5X+5g3jR8bvPjFet8UlQUelPBO+PDt77U/KfCePAMBha2kLLW3RnoYQQvTHzW8vnDQmf9GU/Blj8iUdnmsm5NZt6V5bdcftLEuHskwoz8TlmTBwwNvfj1ZdEU4aEp80NK6uODZH4tXHxV+Ylb315xkTAQGAIljzWmrNa6kTh8Rf+HB29NBSDSzvOzV/9xOhree8H/zW98I3tUQhhDfrQgh/0ceKvuHUkflJJ8eTxuS7+DKnM8fkZ0/NLXnWzSIEAIpky87ohvvKPlWTu2hKSc7X9ysPU07JP7uhl7y5tf9A+P3G1O83hhDSw6vimon5807PV3XVtOATM3J/fD3lWwR6MW8CcwyOef/lqfT9vy3VoeWkXnot0Pa90YNPp7/447JFSzKbd3bFoJyKwryZWd++IABQZL/6XfqpNSXZ/Mb36jvb5OOw+uXUf723bPEjmTf3lXxsHnNC7NNhAgDF95MnMzvrij+EjaiOK/v38jcv4xBWbUgtuLfs8efTcYn/v156brbC7fYEAIqrNRsefKYkJ4JOGZaIq1da2sK/PJX+5oNl9U0lnApU9Av/eboPWAgAFNuqDak9DcUfvE5I0peFra+NvvG/MltK+a7ABZNylf1trQIARZXLh1JcsXNCVbJW46766L89UFa6y3XKMuHCySYBAgDFtubfij9sDR2YuA8wNbeG7/28rHTzgAsn58pdNC4AUFwb3yj+RjiwfxI/wdp4IHznZ5l9jSVpwHH9wnkTXA4kAFBU+5tDU0uRH7NPWUJX5r7G6J9/Varrgv7mDGeBBABKMGwJQLH8cXPq4VUlubZq9NA4Ue+uCwB0hZa2os8AEj1OPbQyvau+JCeCzvHVwQIAxVWCmw0k+vYFbdnwwNKSTALOOVUABACKquiXlxR9StHjrFyfem1H8Ss4dlg8uNJZIAGA4in67S0FIITw6+dLMgk4/SQBEAAoksr+cb9yM4DiW7E+VVeCS0LHjXAWSACgSN41vPhHlHVNbmEcsrmwbF3xd3BfFywAUDRnjCn+gLJjnwCEEMLzrxR/Bz9xcNy33KoVADhq6VR4XwkuLNmxz6oNIYQNW6Oif7F7FIVThjkLJABw1Ga8Jz9ogBlAqeTj8NLrxd/HRx7vLJAAwNHpUxY+MaMkdxfYuN2G/e+r4o3it3DIQOtVAODozJuZrT6u+MeSW3dHDc3W7ts2leBee0N8FEAA4Gh8dFruvNNLcip5w1bnf/7s33aUYgYgAL2EO3zT1coyYe752ZlnluqNxD+85rDmz5pbw/7mUNFPABAAjrXRQ+MvzMqeOLhUI0hTS3hhkwD8hV0NUUW/Yq7w4/qFdCrkXAokANAZUQiTxuQ/PCU/cUy+pCdoVr+casta339hd3108tAiF7dPWfG/xQEBoDfoUxb694kH9A2V/eKxw+JTR8anjogHDuiK8wZL16at/4PUNxX/McszcVOL91oEgGS476ut3f+P3FAbra81Kh2sNVv8dZLkr9zpTZwtpff4xQqH/wUDUIIZgAAIAHQf62qjUnzqVQAKzwCcOxAA6CbasuF//B9jUmEl+MK1ELsQVACgm/j5ivS2Pc7+F1ZegjK2uNRKAKA7+NOW1K9WO/vfpQFoFQABgGPujb3RooczeWckOgpA8ddOq+9cEwA4thoPhFt/kdl/wJroSFVF8R+zpc0Jt97A+2b0VHWN0Xd/ntm+10j0Vxxf7Fuuxr51WQDgGNpVH93808wbRv/OBKDYd2+ua4yccxMAODbWbYl+8L8z+xqN/n9dZf/Qr9hf4buzznoVAOhycRx+uTL9ixVp16F30tgTin/Tzp310isA0LVefzO65zcZ3/dyeAEYVvxU7qrzEggAdJX6pvDTZZmn1qQc+B+uU4YXf5WZAQgAdIWdddHjz6d++1K6udXKOGxlmXD6ScU/BVS7SwAEAEomlw9/2pJ66g+p1S+nXHByxCaclC/6fZtz+fDaDgEQACi2tlxYX5tatSG1+uVUQ7P1cbTOHlf8w/8tuyIfAhAAKI59jdHmndGG2mjdltSr26O2nFVSHP3Kw9TTih+AV7Y5/BcA6NzpgrZsyOZCWy5qzYaG5rCvMaprDHVN0a66aOueqHZX5KtlS6RmQq7onwAIIby6zf1jBICE+fQ/lefyVkOPkYrC355V/BcsDuGPm80AetF2YhVA7/PBM/PDqor/7vnG7dHuBgEQAKC76t8nfHx6SW7Yv2qDEUMAgG7ssprscf1K8sirXzZiCADQXZ0zPv/BM0ryds1rO6I33QRCAIDuaVhVfNXflurbGp/8g+/dFACgW6quiL/+8Wz/PiV58Pqm8PQfDRcCAHQ/lf3jb3wyO2Rgqe6b8X9fSLf5Ivhex+cAoMcbNThe8NESjv5t2fDEi87/CADQzZx1Sv6L/ylbig/9/ocn16Trm6xpAQC6jf59wtzzsx+YWNqPaDc0h58vd/gvAED3kIrCuafnP3lurqqi5DfLfvDpTOMBq1wAgGMtnQrTTst/7P25Utzpob1Nb0T/7yWXiggAcEydOCT+wIT8jPfkKvt30TPm4/A/f5PxNZwCABwDx/UL40flzzg5P+nkeOigrh6Jf/pMeuN2H/0VAKBEe2A6lKVDWSYuz4SBA0JVRVxdEQ+uDCcOiU8aEldXHLPD7xdfSz2yynu/AgAchfu+2vO+z35PQ/SjRzPO/fR63t4B/kJrNix+JLPfdzILAJAouXxYtCTji38FAEiWOA7//dHMi5sMCwIAJMzdT2RWrDcmJIg3gYEQx+Ge32Se/IPRXwCAJGnLhX/+VcbXPQoAkCz7GqPFSzIbtnrXVwCAJHl1e7To4cye/UZ/AQASI47DI6vTP1uWzuWtDAEAEuONvdGPf53ZUOvAXwCAxGjLhiWr0o+sSrflrAwEAJIhjsOyP6V+tjy9s86BPwIAyZCPw7MbUg+tTNfuMvQjAJAM+w+Ep9emH38+tave0I8AQALk8mHt66mn16Z+90rKuX4EAHq/+qbwpy2p519N/X5jqqnF+kAAoFcf6W/bHb22I9r4RrSuNlW7M/IVLggA9MKxfu/+aHdD2FkXbd8Tbd8bbdsTbdsTtWWtGwQAurc4hDgO+XyI45CPQy4fsrmoNRuyudCWDa3Z0NwaHWgNTa3hQGvU2BL2N4f6pqi+OTQ0Rfsaw77GKHZ4jwDQGVffUWYlWHXQMTeABRAAAAQAAAEAQAAAEAAABAAAAQBAAAAQAAAEAAABAEAAABAAALqK20FD1x5zpVITJkyYMWPG9OnTR40aVV1dXV1dHUXR7t279+zZU1tbu3z58mXLlq1duzafz1tdCAA9xuzZs++99972y2tqal566aWiPFQI4YorrnjooYcO6x+uXbv2vPPOO6xn+Q/ZbLapqamxsbG2tvbll19+/vnnH3vssTfffPNwV055efmll1765S9/+eSTT27/05EjR44cOXLixIkXXXRRCOH1119ftGjRgw8+2NraaruiVIcjVgE9zje+8Y1MpuuOXTKZTGVl5fDhw88+++zLL7/8+9///rp16+69996xY8d2/kGmTp363HPPLV68uODo397o0aMXL1783HPPTZ061SuOAMDbxo4dO3fu3GP4B0RRNHv27KVLlxacVbQ3b968JUuWjBo16nCfaNSoUUuWLJk3b54XHQGAty1YsKBfv37H9m8YMGDA/fffP2LEiI5/7XOf+9xtt91WVnaE3zRZVlZ22223aQACAG874YQTPv/5zx/zP2PAgAHXXXddB78wderUm2++ueCPtm3bdtNNN02bNu3EE08cPXr0+9///oULF27fvr3gL3/3u98955xzvO4IAIQQwjXXXDNo0KASPXhNTc1b1+cMHjx43Lhxn/zkJ1euXFnwN2fNmnWoNyTKy8vvuuuugsf+jz766LRp037wgx9s2LChsbGxoaFh/fr1t99++7Rp0x577LGC84C77rqrvLzc644AQBg4cOD8+fNL/Sz5fH737t1PPPHEnDlz1q5d2/4XBg0adKh3gy+77LKRI0e2X75q1aorrriioaGh/Y/q6+uvuOKKVatWtf/RqFGjLr30Uq87AgAhhHDllVcOHz68a56rtbX1UBeMDh06tMCulUp96Utfar88l8vNnz+/g4s7W1pavvKVr+RyufY/mj9/fipln0UAIIS+fftee+21XfZ0GzduLLg8nU63Xzhx4sTRo0e3X/7444+vX7++4ydat27dr3/96/bLR48ePWHCBK87AkASbdq0ad++fe9ccvnll7/rXe/qmmePoqjg8oIfCpsxY0bBX+7gI2zv9Mtf/rLg8kM9LAgAvVx9ff3ixYsPOvq+/vrru+bZx40b135hY2PjK6+80n759OnTCz5IwfP77a1evbrg8kM9LAgAvd+dd9550LWSH/nIRyZPnlzq5+3Tp89nP/vZgkf02Wy2/fKCH/vat2/ftm3bOvN0W7duraur6+TDggCQCAcOHLjlllveuSSKohtvvLFUe0gqdfzxx1944YUPP/zwe97znoN+2tDQ8L3vfa/gP6yurm6/cOfOnZ1/6l27dnXyYeHIuBkcPc/999//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';
+  function header(){
+    doc.setFillColor(...BLACK);doc.rect(0,0,W,25,'F');
+    doc.setFillColor(...GOLD);doc.rect(0,0,5,25,'F');
+    // PD mark
+    doc.setFillColor(...GOLD);doc.roundedRect(M,5,16,16,2,2,'F');
+    doc.setTextColor(...BLACK);doc.setFont('helvetica','bold');doc.setFontSize(12);doc.text('PD',M+3.1,15.5);
+    doc.setTextColor(...WHITE);doc.setFont('helvetica','bold');doc.setFontSize(15);doc.text('PAUL DAVIS',M+21,11.5);
+    doc.setFont('helvetica','normal');doc.setFontSize(7.2);doc.text('RESTORATION · LYNCHBURG, ROANOKE & SOUTHSIDE VA',M+21,17);
+    doc.setTextColor(...WHITE);doc.setFontSize(6.6);doc.text('(434) 448-0049  ·  lnro.info@pauldavis.com',R,11.5,{align:'right'});
+    doc.text('3135 Carroll Ave, Suite A · Lynchburg, VA 24501',R,17,{align:'right'});
+    y=33;
+  }
+  function footer(){
+    doc.setDrawColor(...LINE);doc.setLineWidth(.25);doc.line(M,H-14,R,H-14);
+    doc.setTextColor(...MID);doc.setFont('helvetica','normal');doc.setFontSize(6.5);
+    doc.text('Paul Davis Restoration of Lynchburg, Roanoke & Southside VA · For internal use',M,H-8);
+    doc.text(`Page ${page}`,R,H-8,{align:'right'});
+  }
+  function newPage(){footer();doc.addPage();page++;header()}
+  function need(h=8){if(y+h>H-19)newPage()}
+  function title(){
+    doc.setTextColor(...BLACK);doc.setFont('helvetica','bold');doc.setFontSize(17);
+    doc.text(type==='team'?'LOSS INTAKE':'SERVICE REQUEST',M,y); 
+    doc.setTextColor(...GOLD);doc.setFontSize(8);doc.text(type==='team'?'TEAM':'CUSTOMER',R,y,{align:'right'});
+    y+=5;doc.setDrawColor(...GOLD);doc.setLineWidth(1);doc.line(M,y,R,y);y+=5;
+    doc.setFillColor(...LIGHT);doc.roundedRect(M,y,R-M,14,2,2,'F');
+    doc.setTextColor(...DARK);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text(fd.customer_name||fd.business_name||'New Intake',M+4,y+5);
+    const addr=[fd.job_address,fd.job_city,fd.job_state,fd.job_zip].filter(Boolean).join(', ');
+    doc.setFont('helvetica','normal');doc.setFontSize(7);doc.setTextColor(...MID);doc.text(addr||'Address not provided',M+4,y+10);
+    doc.setTextColor(...GOLD);doc.setFont('helvetica','bold');doc.text(fd.loss_type||'Loss Type TBD',R-4,y+5,{align:'right'});
+    doc.setTextColor(...MID);doc.setFont('helvetica','normal');doc.text(fd.date_of_loss?`Loss date: ${fd.date_of_loss}`:'Loss date not provided',R-4,y+10,{align:'right'});
+    y+=20;
+  }
+  function section(t){
+    need(35);y+=3;doc.setFillColor(...BLACK);doc.roundedRect(M,y,R-M,8,1.5,1.5,'F');
+    doc.setTextColor(...WHITE);doc.setFont('helvetica','bold');doc.setFontSize(8);doc.text(t.toUpperCase(),M+4,y+5.2);y+=12;
+  }
+  function field(label,value,span=1){
+    if(value===undefined||value===null||String(value).trim()==='')return;
+    const v=String(value);
+    const colW=(R-M-5)/2;
+    const w=span===2?(R-M):colW;
+    const x=span===2?M:(field._col===0?M:M+colW+5);
+    const lines=doc.splitTextToSize(v,w-8);
+    const h=Math.max(9,6+lines.length*3.7);
+    if(y+h>H-19){newPage()}
+    doc.setFillColor(255,255,255);
+    doc.setDrawColor(...LINE);doc.setLineWidth(.25);doc.roundedRect(x,y,w,h,1.2,1.2,'FD');
+    doc.setTextColor(...MID);doc.setFont('helvetica','bold');doc.setFontSize(6.2);doc.text(label.toUpperCase(),x+4,y+3.8);
+    doc.setTextColor(...DARK);doc.setFont('helvetica','normal');doc.setFontSize(7.8);doc.text(lines,x+4,y+7.5);
+    if(span===2){y+=h+3;field._col=0}else if(field._col===0){field._col=1}else{field._col=0;y+=h+3}
+  }
+  function fields(arr){field._col=0;for(const item of arr){field(item[0],item[1],item[2]||1)}if(field._col===1){y+=10;field._col=0}}
+  function pretty(k){
+    const map={water_source:'Source',water_cat:'Category',w_rep:'Reported?',w_stand:'Standing Water',w_depth:'Depth',w_dur:'Duration',w_cont:'Contamination',w_mat:'Affected Materials',w_details:'Details',f_origin:'Origin',f_fd:'Fire Damage',f_util:'Utilities',f_safe:'Safety',f_roof:'Roof',f_smoke:'Smoke',f_board:'Board-Up',f_disp:'Displacement',f_details:'Details',m_loc:'Location',m_vis:'Visible Mold',m_area:'Affected Area',m_moist:'Moisture',m_prev:'Previous Remediation',m_test:'Testing',m_details:'Details',e_type:'Emergency Type',e_haz:'Hazards',e_urg:'Urgency',e_sec:'Security',e_details:'Details',r_prior:'Prior Repairs',r_claim:'Claim',r_scope:'Scope',r_size:'Size',r_mit:'Mitigation',r_perm:'Permits',r_details:'Details',i_scope:'Inspection Scope',i_desc:'Description',i_time:'Timeline',i_plans:'Plans',i_details:'Details'};
+    if(map[k])return map[k];return k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+  }
+  header();title();
+  section('Customer & Property');
+  fields([
+    ['Property Type',fd.property_type],['Customer / Business',fd.customer_name||fd.business_name],
+    ['Point of Contact',fd.point_of_contact||fd.res_poc],['Customer is POC',fd.customer_is_poc],
+    ['Service Address',[fd.job_address,fd.job_city,fd.job_state,fd.job_zip].filter(Boolean).join(', '),2],
+    ['Structure',fd.structure_type],['Year Built',fd.year_built],['Phone',fd.preferred_phone||'Not Provided'],
+    ['Email',fd.email||'Not Provided'],['Preferred Contact',[fd.pref_call,fd.pref_text,fd.pref_email].filter(Boolean).join(', ')],
+    ['Referred By',fd.referred_by],['Reported By',fd.reported_by]
+  ]);
+  section('Loss Details');
+  const loss=[['Loss Type',fd.loss_type],['Date of Loss',fd.date_of_loss],['Rooms / Areas',fd.rooms]];
+  const allL=['water_source','water_cat','w_rep','w_stand','w_depth','w_dur','w_cont','w_mat','w_details','f_origin','f_fd','f_util','f_safe','f_roof','f_smoke','f_board','f_disp','f_details','m_loc','m_vis','m_area','m_moist','m_prev','m_test','m_details','e_type','e_haz','e_urg','e_sec','e_details','r_prior','r_claim','r_scope','r_size','r_mit','r_perm','r_details','i_scope','i_desc','i_time','i_plans','i_details'];
+  allL.forEach(k=>{if(fd[k])loss.push([pretty(k),fd[k],(String(fd[k]).length>90?2:1)])});
+  fields(loss);
+  section('Payment & Insurance');
+  fields([
+    ['Payment Method',fd.payment_method],['Insurance Carrier',fd.ins_carrier],['Claim Number',fd.claim_num],['Coverage',fd.coverage],
+    ['Agent',fd.ins_agent],['Deductible',fd.deductible?'$'+fd.deductible:''],['Adjuster',fd.adjuster],
+    ['Budget',fd.budget_status==='Yes'?'$'+fd.budget_amount:fd.budget_status]
+  ]);
+  section('Scheduling');
+  fields([
+    ['Inspection Needed',fd.sched_needed],['Preferred Days',fd.sched_days],['Preferred Date',fd.sched_date],['Preferred Time',fd.sched_time],
+    ['Alternate Dates',fd.sched_alt_dates],['Assigned To',fd.sched_assigned],['Access',fd.sched_access],['Scheduling Notes',fd.sched_notes,2]
+  ]);
+  if(type==='team'){
+    section('Internal Team Notes');
+    fields([['Free Quote',fd.rf_quote],['Pricing',fd.rf_pricing],['Bid',fd.rf_bid],['Internal Notes',fd.rf_notes,2]]);
+  }
+  const routeEl=document.getElementById('route-info');
+  const routeText=routeEl&&routeEl.style.display!=='none'?routeEl.innerText:'';
+  if(fd.coverage||routeText){
+    section('Territory & Routing');
+    fields([['Territory',fd.coverage],['Route',routeText,2]]);
+  }
+  need(18);y+=2;doc.setFillColor(...LIGHT);doc.roundedRect(M,y,R-M,14,2,2,'F');
+  doc.setTextColor(...MID);doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.text('Generated',M+4,y+5);doc.setTextColor(...DARK);doc.setFont('helvetica','bold');doc.setFontSize(7.2);doc.text(new Date().toLocaleString(),M+4,y+10);
+  doc.setTextColor(...MID);doc.setFont('helvetica','normal');doc.setFontSize(6.5);doc.text('Document',R-4,y+5,{align:'right'});doc.setTextColor(...DARK);doc.setFont('helvetica','bold');doc.setFontSize(7.2);doc.text(type==='team'?'Team Loss Intake':'Customer Service Request',R-4,y+10,{align:'right'});
+  footer();
+  const safe=(fd.customer_name||fd.business_name||'form').replace(/[^a-z0-9]+/gi,'_').replace(/^_|_$/g,'');
+  doc.save(`PDR_${type==='team'?'Team_Loss_Intake':'Customer_Service_Request'}_${safe||'form'}.pdf`);
+  showT(`${type==='team'?'Team':'Customer'} PDF saved`)
+}
+
+// STORAGE
+const SK='pdr_v11';function getE(){try{return JSON.parse(localStorage.getItem(SK)||'[]')}catch{return[]}}function saveE(e){localStorage.setItem(SK,JSON.stringify(e));updUI()}function updUI(){document.getElementById('entry-count').textContent=getE().length}function showT(m){const t=document.getElementById('toast');document.getElementById('toast-msg').textContent=m;t.classList.add('visible');setTimeout(()=>t.classList.remove('visible'),3000)}
+function exportXL(){const entries=getE();if(!entries.length){showT('No entries');return}const allK=new Set();entries.forEach(e=>Object.keys(e).forEach(k=>allK.add(k)));const cols=[...allK],hdrs=cols.map(c=>c.replace(/_/g,' ').replace(/\b\w/g,l=>l.toUpperCase())),ws=[hdrs];entries.forEach(en=>ws.push(cols.map(c=>en[c]||'N/A')));const wb=XLSX.utils.book_new(),sheet=XLSX.utils.aoa_to_sheet(ws);sheet['!cols']=cols.map(c=>({wch:c.includes('details')||c.includes('address')?30:16}));XLSX.utils.book_append_sheet(wb,sheet,'Intake');XLSX.writeFile(wb,`PDR_Intake_${new Date().toISOString().slice(0,10)}.xlsx`);showT(`Exported ${entries.length}`)}
+function togPrev(){const el=document.getElementById('entries-preview');el.classList.toggle('visible');if(el.classList.contains('visible'))updPrev()}
+function updPrev(){const entries=getE(),tb=document.getElementById('prev-tb');if(!entries.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:16px;color:#888">None</td></tr>';return}tb.innerHTML=entries.map(e=>`<tr><td>${e.submitted_at||''}</td><td>${e.property_type||''}</td><td>${e.loss_type||''}</td><td>${e.customer_name||e.business_name||''}</td><td>${e.job_zip||''}</td><td>${e.payment_method||''}</td></tr>`).join('')}
+function clearStor(){if(confirm('Clear all stored entries?')){localStorage.removeItem(SK);updUI();updPrev();showT('Cleared')}}
+function clearForm(){document.getElementById('intake-form').reset();fst2.value='VA';document.getElementById('bs-input').value='Yes';cbEl.classList.remove('visible','covered','not-covered');gml.classList.remove('visible');sugs.classList.remove('visible');document.querySelectorAll('.conditional').forEach(el=>el.classList.remove('visible'));document.querySelectorAll('.type-option').forEach(el=>el.classList.remove('active'));document.getElementById('bs-btn').classList.add('active');document.getElementById('bd-btn').classList.remove('active');document.getElementById('ss').innerHTML='<option value="">Select...</option>';document.getElementById('saved-banner').classList.remove('visible')}
+updUI();
+</script>
+
+<script>
+(function(){
+  if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches && 'ontouchstart' in window) {
+    var h=document.getElementById('iphone-hint');
+    if(h && !sessionStorage.getItem('lnro_mobile_hint')){h.style.display='block';sessionStorage.setItem('lnro_mobile_hint','1')}
+  }
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+}
+</script>
+
+<div id="pwa-install" style="display:none;position:fixed;left:12px;right:12px;bottom:12px;z-index:99999;background:#111;color:#fff;border-radius:14px;padding:12px 14px;box-shadow:0 8px 30px rgba(0,0,0,.25);font:14px system-ui,sans-serif;align-items:center;gap:10px">
+  <div style="flex:1"><strong>LNRO Intake</strong><div style="opacity:.8;font-size:12px;margin-top:2px">Install this app for quick access.</div></div>
+  <button id="pwa-install-btn" style="border:0;border-radius:10px;padding:9px 12px;font-weight:700;background:#b8860b;color:#fff">Install</button>
+  <button id="pwa-install-close" style="border:0;background:transparent;color:#fff;font-size:20px;padding:4px">×</button>
+</div>
+<script>
+(function(){
+ let deferredPrompt;
+ const bar=document.getElementById('pwa-install'), btn=document.getElementById('pwa-install-btn'), close=document.getElementById('pwa-install-close');
+ window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt=e; bar.style.display='flex'; });
+ btn?.addEventListener('click', async()=>{ if(!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; bar.style.display='none'; });
+ close?.addEventListener('click',()=>bar.style.display='none');
+ window.addEventListener('appinstalled',()=>{bar.style.display='none'; deferredPrompt=null;});
+})();
+</script>
+<style id="lnro-app-upgrade">
+:root{--lnro-gold:#b8860b;--lnro-black:#171717;--lnro-bg:#f5f5f3}
+body{background:var(--lnro-bg)}
+#lnro-appbar{position:sticky;top:0;z-index:5000;background:rgba(23,23,23,.97);color:#fff;padding:max(8px,env(safe-area-inset-top)) 14px 8px;display:flex;align-items:center;gap:10px;box-shadow:0 2px 12px rgba(0,0,0,.18)}
+#lnro-appbar .app-logo{width:34px;height:34px;border-radius:10px;background:var(--lnro-gold);display:grid;place-items:center;color:#171717;font-weight:900;font-size:10px;letter-spacing:.04em;flex:0 0 auto}
+#lnro-appbar .app-title{font-size:15px;font-weight:800;line-height:1.05}.app-sub{font-size:9px;color:#cfcfcf;margin-top:3px;letter-spacing:.05em;text-transform:uppercase}
+#lnro-appbar .app-status{margin-left:auto;font-size:10px;color:#9ee6ad;display:flex;align-items:center;gap:5px}.app-dot{width:7px;height:7px;border-radius:50%;background:#55c96b}.offline .app-dot{background:#e3a33b}.offline #lnro-appbar .app-status{color:#f0c47a}
+#lnro-appbar button{border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;border-radius:9px;padding:8px 10px;font-weight:700;font-size:11px}
+#lnro-bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:4900;padding:8px 12px calc(8px + env(safe-area-inset-bottom));background:rgba(255,255,255,.96);border-top:1px solid #ddd;box-shadow:0 -3px 14px rgba(0,0,0,.10);display:flex;justify-content:space-around;backdrop-filter:blur(12px)}
+#lnro-bottomnav button{border:0;background:transparent;color:#555;font:700 11px system-ui;padding:6px 12px;border-radius:10px}.lnro-nav-active{background:#f0e5c7!important;color:#171717!important}
+body{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+#lnro-saved-overlay,#lnro-settings-overlay{position:fixed;inset:0;z-index:7000;background:rgba(0,0,0,.45);display:none;align-items:flex-end}
+#lnro-saved-overlay.open,#lnro-settings-overlay.open{display:flex}
+.lnro-sheet{background:#f7f7f5;width:100%;max-height:88vh;border-radius:18px 18px 0 0;overflow:auto;padding:16px 16px calc(24px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.25)}
+.lnro-sheet-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}.lnro-sheet-head h2{font-size:18px;margin:0}.lnro-close{margin-left:auto;border:0;background:#e9e9e7;border-radius:50%;width:34px;height:34px;font-size:20px}
+.lnro-entry{background:#fff;border:1px solid #e2e2df;border-radius:12px;padding:13px;margin:9px 0}.lnro-entry-title{font-weight:800;font-size:14px}.lnro-entry-meta{font-size:11px;color:#666;margin-top:4px;line-height:1.5}.lnro-entry-actions{display:flex;gap:7px;margin-top:10px}.lnro-entry-actions button{border:0;border-radius:8px;padding:8px 10px;font-weight:700;font-size:11px}.lnro-load{background:#171717;color:#fff}.lnro-delete{background:#f5dddd;color:#8a2626}
+.lnro-empty{padding:30px 10px;text-align:center;color:#777;font-size:13px}.lnro-setting-row{background:#fff;border:1px solid #e2e2df;border-radius:12px;padding:14px;margin:10px 0}.lnro-setting-row strong{display:block;font-size:13px}.lnro-setting-row span{display:block;color:#666;font-size:11px;margin-top:5px;line-height:1.4}
+#lnro-draft-banner{display:none;position:fixed;left:12px;right:12px;bottom:calc(78px + env(safe-area-inset-bottom));z-index:4800;background:#fff7dc;border:1px solid #e1c36a;color:#5e4a12;border-radius:12px;padding:11px 12px;font:600 12px system-ui;box-shadow:0 6px 22px rgba(0,0,0,.12)}
+@media(min-width:769px){#lnro-appbar,#lnro-bottomnav{display:none}body{padding-bottom:0}}
+</style>
+
+<div id="lnro-appbar">
+  <div class="app-logo">LNRO</div><div><div class="app-title">LNRO Intake</div><div class="app-sub">Lynchburg · Roanoke · Southside VA</div></div>
+  <div class="app-status"><span class="app-dot"></span><span id="lnro-online-label">Online</span></div>
+  <button type="button" onclick="LNRO.openSaved()">Saved</button>
+</div>
+<div id="lnro-bottomnav"><button id="lnro-nav-new" class="lnro-nav-active" onclick="LNRO.newIntake()">＋ New Intake</button><button id="lnro-nav-saved" onclick="LNRO.openSaved()">▣ Saved</button><button id="lnro-nav-settings" onclick="LNRO.openSettings()">⚙ Settings</button></div>
+<div id="lnro-saved-overlay" onclick="if(event.target===this)LNRO.closeSheets()"><div class="lnro-sheet"><div class="lnro-sheet-head"><h2>Saved Intakes</h2><button class="lnro-close" onclick="LNRO.closeSheets()">×</button></div><div id="lnro-saved-list"></div></div></div>
+<div id="lnro-settings-overlay" onclick="if(event.target===this)LNRO.closeSheets()"><div class="lnro-sheet"><div class="lnro-sheet-head"><h2>LNRO Intake Settings</h2><button class="lnro-close" onclick="LNRO.closeSheets()">×</button></div><div class="lnro-setting-row"><strong>App version</strong><span>LNRO Intake v4.1 · Mobile/PWA + Transcript Assistant</span></div><div class="lnro-setting-row"><strong>Offline mode</strong><span>The app shell is cached for offline use. Map, address lookup, and other internet-dependent services may require a connection.</span></div><div class="lnro-setting-row"><strong>Saved information</strong><span>Saved intakes and the current draft are stored locally on this iPhone/browser. They are not automatically uploaded to a central database.</span></div><div class="lnro-setting-row"><strong>Data tools</strong><div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap"><button class="btn btn-outline" onclick="LNRO.exportBackup()">Export Backup</button><button class="btn btn-danger" onclick="LNRO.clearDraft()">Clear Draft</button></div></div></div></div>
+<div id="lnro-draft-banner">A saved draft was found on this device. <button style="margin-left:8px;border:0;background:#171717;color:#fff;border-radius:7px;padding:6px 9px;font-weight:700" onclick="LNRO.restoreDraft()">Restore</button><button style="margin-left:5px;border:0;background:transparent;color:#6b5312;font-weight:700" onclick="LNRO.dismissDraft()">Dismiss</button></div>
+<script>
+(function(){
+ const DRAFT='lnro_current_draft_v2';
+ function form(){return document.getElementById('intake-form')}
+ function serialize(){const f=form(),data={};if(!f)return data;f.querySelectorAll('input,select,textarea').forEach(el=>{if(!el.name)return;if(el.type==='checkbox'||el.type==='radio'){data[el.name]=Array.from(f.querySelectorAll('[name="'+CSS.escape(el.name)+'"]:checked')).map(x=>x.value)}else data[el.name]=el.value});return data}
+ function apply(data){const f=form();if(!f||!data)return;Object.entries(data).forEach(([name,val])=>{const els=f.querySelectorAll('[name="'+CSS.escape(name)+'"]');if(!els.length)return;if(els[0].type==='checkbox'||els[0].type==='radio')els.forEach(el=>el.checked=Array.isArray(val)&&val.includes(el.value));else els.forEach(el=>el.value=val??'')});if(data.property_type&&typeof setPT==='function')setPT(data.property_type);if(typeof togglePOC==='function')togglePOC()}
+ function saveDraft(){try{localStorage.setItem(DRAFT,JSON.stringify({saved_at:new Date().toISOString(),data:serialize()}))}catch(e){}}
+ function getDraft(){try{return JSON.parse(localStorage.getItem(DRAFT)||'null')}catch(e){return null}}
+ function hideDraft(){const b=document.getElementById('lnro-draft-banner');if(b)b.style.display='none'}
+ function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+ window.LNRO={
+  newIntake(){hideDraft();localStorage.removeItem(DRAFT);if(typeof clearForm==='function')clearForm();window.scrollTo({top:0,behavior:'smooth'});document.getElementById('lnro-nav-new')?.classList.add('lnro-nav-active');document.getElementById('lnro-nav-saved')?.classList.remove('lnro-nav-active')},
+  openSaved(){LNRO.renderSaved();document.getElementById('lnro-saved-overlay').classList.add('open');document.getElementById('lnro-nav-saved')?.classList.add('lnro-nav-active');document.getElementById('lnro-nav-new')?.classList.remove('lnro-nav-active')},
+  openSettings(){document.getElementById('lnro-settings-overlay').classList.add('open')},
+  closeSheets(){document.querySelectorAll('#lnro-saved-overlay,#lnro-settings-overlay').forEach(x=>x.classList.remove('open'))},
+  renderSaved(){const box=document.getElementById('lnro-saved-list'),entries=getE();if(!entries.length){box.innerHTML='<div class="lnro-empty">No saved intakes yet.<br>Complete an intake and tap Save Entry.</div>';return}box.innerHTML=entries.slice().reverse().map((e,rev)=>{const idx=entries.length-1-rev,name=e.customer_name||e.business_name||'Unnamed customer',loss=e.loss_type||'Loss type not specified',date=e.submitted_at||'',zip=e.job_zip||'';return '<div class="lnro-entry"><div class="lnro-entry-title">'+esc(name)+'</div><div class="lnro-entry-meta">'+esc(loss)+(zip?' · '+esc(zip):'')+'<br>'+esc(date)+'</div><div class="lnro-entry-actions"><button class="lnro-load" onclick="LNRO.loadEntry('+idx+')">Open Intake</button><button class="lnro-delete" onclick="LNRO.deleteEntry('+idx+')">Delete</button></div></div>'}).join('')},
+  loadEntry(idx){const e=getE()[idx];if(!e)return;apply(e);LNRO.closeSheets();document.getElementById('lnro-nav-new')?.classList.add('lnro-nav-active');document.getElementById('lnro-nav-saved')?.classList.remove('lnro-nav-active');window.scrollTo({top:document.querySelector('.form-section')?.offsetTop||0,behavior:'smooth'});showT('Intake loaded')},
+  deleteEntry(idx){if(!confirm('Delete this saved intake?'))return;const entries=getE();entries.splice(idx,1);saveE(entries);LNRO.renderSaved();showT('Intake deleted')},
+  restoreDraft(){const d=getDraft();if(d?.data){apply(d.data);hideDraft();showT('Draft restored')}},
+  dismissDraft(){hideDraft()},
+  clearDraft(){localStorage.removeItem(DRAFT);hideDraft();showT('Draft cleared')},
+  exportBackup(){const blob=new Blob([JSON.stringify({version:2,exported_at:new Date().toISOString(),entries:getE()},null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='LNRO_Intake_Backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);showT('Backup exported')}
+ };
+ window.addEventListener('input',saveDraft,{passive:true});window.addEventListener('change',saveDraft,{passive:true});
+ window.addEventListener('load',()=>{if(getDraft()){const b=document.getElementById('lnro-draft-banner');if(b)b.style.display='block'};updateOnline()});
+ function updateOnline(){const online=navigator.onLine;document.body.classList.toggle('offline',!online);const l=document.getElementById('lnro-online-label');if(l)l.textContent=online?'Online':'Offline'}
+ window.addEventListener('online',updateOnline);window.addEventListener('offline',updateOnline);
+ const f=form();if(f)f.addEventListener('submit',()=>{localStorage.removeItem(DRAFT);hideDraft();setTimeout(()=>LNRO.renderSaved(),250)});
+ const oldClear=window.clearStor;window.clearStor=function(){if(typeof oldClear==='function')oldClear();LNRO.renderSaved()};
+})();
+</script>
+
+
+<script>
+(function(){
+  const AI={last:null};
+  function text(){return (document.getElementById('lnro-transcript')?.value||'').trim()}
+  function norm(v){return String(v||'').replace(/\s+/g,' ').trim()}
+  function cap(v){return norm(v).replace(/\s+/g,' ')}
+  function find(re,s){const m=s.match(re);return m?cap(m[1]||m[0]):''}
+  function dateToISO(raw){if(!raw)return ''; const r=String(raw).toLowerCase().trim(); const base=new Date(); if(r==='today'){return base.toISOString().slice(0,10)} if(r==='yesterday'||r==='last night'){base.setDate(base.getDate()-1);return base.toISOString().slice(0,10)} const d=new Date(raw); if(!isNaN(d)) return d.toISOString().slice(0,10); let m=raw.match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/); if(!m)return ''; let y=m[3].length===2?'20'+m[3]:m[3]; return `${y}-${String(m[1]).padStart(2,'0')}-${String(m[2]).padStart(2,'0')}` }
+  function setField(name,val){if(!val)return;const els=[...document.querySelectorAll('[name="'+CSS.escape(name)+'"]')];if(!els.length)return;els.forEach(el=>{if(el.type==='checkbox'||el.type==='radio'){if(Array.isArray(val))el.checked=val.includes(el.value);else el.checked=el.value.toLowerCase()===String(val).toLowerCase()}else if(el.tagName==='SELECT'){const v=String(val).toLowerCase();const opt=els[0].options;let best='';for(const o of opt){if(o.value.toLowerCase()===v||o.text.toLowerCase()===v||o.text.toLowerCase().includes(v)||v.includes(o.text.toLowerCase())){best=o.value;break}} if(best)el.value=best;}else el.value=val});}
+  function extract(s){
+    const out={};
+    const phone=find(/(?:phone|cell|call(?: me)?)(?: number)?[^\d]*(\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4})/i,s)||find(/(\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4})/,s); if(phone)out.preferred_phone=phone;
+    const email=find(/([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/i,s); if(email)out.email=email;
+    const name=find(/(?:my name is|this is|customer is|speaking with)\s+([A-Z][A-Za-z.'-]+(?:\s+[A-Z][A-Za-z.'-]+){1,3})(?=[,.!?]|\s+(?:and|we|i|my|the|is)\b|$)/i,s); if(name)out.customer_name=name.replace(/[.,!?]+$/,'');
+    const addr=find(/(?:at|address(?: is|:)?|located at|property is)\s+([0-9]{1,6}\s+[A-Za-z0-9.'#-]+(?:\s+[A-Za-z0-9.'#-]+){0,6}\s+(?:Northeast|Northwest|Southeast|Southwest|North|South|East|West|NE|NW|SE|SW|N|S|E|W)?\s*(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Court|Ct|Boulevard|Blvd|Way|Place|Pl|Circle|Cir|Parkway|Pkwy|Highway|Hwy)(?:\s+(?:Northeast|Northwest|Southeast|Southwest|North|South|East|West|NE|NW|SE|SW|N|S|E|W))?(?:\s+(?:Suite|Ste|Unit|#)\s*[A-Za-z0-9-]+)?)/i,s); if(addr)out.job_address=addr.replace(/[,.]$/,'');
+    const city=find(/(?:in|from|located in)\s+([A-Z][A-Za-z .'-]+?)(?:,\s*VA|\s+VA\b|\s+Virginia\b)/,s); if(city)out.job_city=city;
+    const zip=find(/\b(24\d{3})\b/,s); if(zip)out.job_zip=zip;
+    if(/\b(residential|house|home|single[- ]family)\b/i.test(s))out.property_type='Residential'; else if(/\b(commercial|business|office|store|restaurant|warehouse)\b/i.test(s))out.property_type='Commercial';
+    if(/\bwater\b|pipe burst|leak|flood/i.test(s))out.loss_type='Water'; else if(/\bfire|smoke damage/i.test(s))out.loss_type='Fire'; else if(/\bmold\b/i.test(s))out.loss_type='Mold'; else if(/\bstorm|wind|hail|tornado|hurricane\b/i.test(s))out.loss_type='Storm';
+    const lossDate=find(/(?:yesterday|today|last night|on)\s+((?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)(?:\s*,?\s*\w+)?|\w+\s+\d{1,2}(?:,\s*\d{4})?|\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/i,s); if(lossDate)out.date_of_loss=dateToISO(lossDate);
+    const carrier=find(/(?:insurance (?:is|with)|carrier(?: is|:)?|insured by|we have|we're with|we are with|with)\s+([A-Za-z][A-Za-z &.-]{2,40}?)(?=,|\.|\s+claim|\s+and|$)/i,s); if(carrier)out.ins_carrier=carrier;
+    const claim=find(/(?:claim(?: number| #| no\.)?|claim id)\s*(?:is|:)?\s*([A-Za-z0-9-]+)/i,s); if(claim)out.claim_num=claim;
+    const ded=find(/(?:deductible)\s*(?:is|:)?\s*\$?([0-9,]+(?:\.[0-9]{2})?)/i,s); if(ded)out.deductible=ded.replace(/,/g,'');
+    const rooms=[]; const roomWords=['bathroom','kitchen','bedroom','hallway','basement','attic','garage','living room','dining room','laundry room','crawlspace']; roomWords.forEach(r=>{if(new RegExp('\\b'+r.replace(' ','\\s+')+'\\b','i').test(s))rooms.push(r)}); if(rooms.length)out.rooms=rooms.join(', ');
+    const source=find(/(?:came from|source was|source is|originated from)\s+([^.,;]+)/i,s); if(source)out.water_source=source;
+    const loc=find(/(?:origin|started in|began in|from)\s+(?:the\s+)?([^.,;]+(?:bathroom|kitchen|bedroom|basement|attic|garage)[^.,;]*)/i,s); if(loc)out.f_origin=loc;
+    if(/\b(?:Tuesday|Tue)\b/i.test(s))out.sched_days=['Tuesday']; else if(/\b(?:Wednesday|Wed)\b/i.test(s))out.sched_days=['Wednesday']; else if(/\b(?:Thursday|Thu)\b/i.test(s))out.sched_days=['Thursday']; else if(/\b(?:Friday|Fri)\b/i.test(s))out.sched_days=['Friday']; else if(/\b(?:Monday|Mon)\b/i.test(s))out.sched_days=['Monday']; else if(/\b(?:Saturday|Sat)\b/i.test(s))out.sched_days=['Saturday'];
+    if(/\bmorning\b|8 ?(?:am)? ?[-to] ?12|9 ?am|10 ?am|11 ?am/i.test(s))out.sched_time='Morning (8-12)'; else if(/\bafternoon\b|1 ?pm|2 ?pm|3 ?pm|4 ?pm/i.test(s))out.sched_time='Afternoon (12-5)'; else if(/\bevening\b|5 ?pm|6 ?pm|7 ?pm/i.test(s))out.sched_time='Evening (5+)';
+    if(/(?:inspection|someone|technician|estimator|team).*(?:come|visit|out|schedule)/i.test(s))out.sched_needed='Yes';
+    const notes=find(/(?:access|entry|lockbox|gate|meet (?:the )?(?:customer|tenant))[^.]*([^.]+)/i,s); if(notes)out.sched_access=cap(notes);
+    return out;
+  }
+  function pretty(k){return ({customer_name:'Customer Name',job_address:'Job Address',job_city:'City',job_zip:'ZIP',preferred_phone:'Phone',email:'Email',property_type:'Property Type',loss_type:'Loss Type',date_of_loss:'Loss Date',rooms:'Affected Areas',water_source:'Water Source',f_origin:'Origin',ins_carrier:'Insurance Carrier',claim_num:'Claim Number',deductible:'Deductible',sched_days:'Preferred Day',sched_time:'Preferred Time',sched_needed:'Inspection Needed',sched_access:'Access Instructions'})[k]||k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}
+  function render(out){const entries=Object.entries(out);const html=entries.map(([k,v])=>`<div class="lnro-ai-field"><div class="k">${pretty(k)}</div><div class="v">${Array.isArray(v)?v.join(', '):String(v)}</div><div class="confidence">Extracted from transcript · review recommended</div></div>`).join('');const countText=entries.length?`Found ${entries.length} field${entries.length===1?'':'s'}. Review before applying.`:'No confident fields found. Try a transcript with customer, address, and loss details.';const grid=document.getElementById('lnro-ai-result-grid'),count=document.getElementById('lnro-ai-result-count');if(grid)grid.innerHTML=html;if(count)count.textContent=countText;const results=document.getElementById('lnro-ai-results');if(results)results.style.display='block';const ig=document.getElementById('lnro-inline-result-grid'),ic=document.getElementById('lnro-inline-result-count'),ir=document.getElementById('lnro-inline-results');if(ig)ig.innerHTML=html;if(ic)ic.textContent=countText;if(ir)ir.classList.add('visible')}
+  function applyLast(){if(!AI.last){showT('Extract information first');return}Object.entries(AI.last).forEach(([k,v])=>setField(k,v));if(AI.last.property_type&&typeof setPT==='function')setPT(AI.last.property_type);if(AI.last.loss_type&&typeof setLT==='function')setLT(AI.last.loss_type);if(typeof togglePOC==='function')togglePOC();if(typeof updateMap==='function')try{updateMap()}catch(e){};window.dispatchEvent(new Event('input'));showT('AI fields applied — review the intake');window.scrollTo({top:document.querySelector('.form-section')?.offsetTop||0,behavior:'smooth'})}
+  window.LNRO.openTranscript=function(){document.getElementById('lnro-transcript-overlay').classList.add('open');setTimeout(()=>document.getElementById('lnro-transcript')?.focus(),150)};
+  window.LNRO.closeTranscript=function(){document.getElementById('lnro-transcript-overlay').classList.remove('open')};
+  window.LNRO.extractTranscript=function(){const s=text();if(!s){showT('Paste a call transcript first');return}AI.last=extract(s);render(AI.last);showT('Transcript analyzed locally')};
+  window.LNRO.applyTranscript=function(){if(!AI.last){showT('Extract information first');return}applyLast();LNRO.closeTranscript()};
+  window.LNRO.extractInlineTranscript=function(){const s=(document.getElementById('lnro-transcript-inline')?.value||'').trim();if(!s){showT('Paste a call transcript first');document.getElementById('lnro-transcript-inline')?.focus();return}AI.last=extract(s);render(AI.last);showT('Transcript analyzed locally')};
+  window.LNRO.applyInlineTranscript=function(){applyLast()};
+  window.LNRO.clearInlineTranscript=function(){const t=document.getElementById('lnro-transcript-inline');if(t)t.value='';const r=document.getElementById('lnro-inline-results');if(r)r.classList.remove('visible');showT('Transcript cleared')};
+})();
+</script>\n
+</body>
+</html>
